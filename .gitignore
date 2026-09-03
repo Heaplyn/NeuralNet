@@ -1,0 +1,39 @@
+# Build directories and binaries
+build/
+build_vs/
+build_gcc/
+build_*/
+bin/
+out/
+*.exe
+*.obj
+*.o
+*.lib
+*.dll
+*.pdb
+*.ilk
+*.idb
+*.ipch
+*.log
+
+# Checkpoint binary weight files (keep structure and txt summaries)
+checkpoints/**/*.bin
+checkpoints/*.bin
+data/*.bin
+
+# Large standard datasets (downloadable; not project-specific source)
+# Kept: corpus.txt, *.csv, data/code_dataset/ (project inputs)
+data/fashion_mnist/
+*-idx3-ubyte
+*-idx1-ubyte
+*-idx3-ubyte.gz
+*-idx1-ubyte.gz
+*.gz
+
+# IDE and OS
+.vs/
+.gemini/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

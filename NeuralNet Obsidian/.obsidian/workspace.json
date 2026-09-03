@@ -1,0 +1,244 @@
+{
+  "main": {
+    "id": "18057491c66a5917",
+    "type": "split",
+    "children": [
+      {
+        "id": "50632cad781c5d90",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "8f64a097ce1ad7c3",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Progressive Curriculum & Horizon Growth"
+            }
+          }
+        ]
+      },
+      {
+        "id": "d78de962adad16c5",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "afeea2e7043c041a",
+            "type": "leaf",
+            "state": {
+              "type": "graph",
+              "state": {},
+              "icon": "lucide-git-fork",
+              "title": "Graph view"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "vertical"
+  },
+  "left": {
+    "id": "c52f074f3b647ba2",
+    "type": "split",
+    "children": [
+      {
+        "id": "3d5ac4b0cd36e377",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "38140cb836345e1e",
+            "type": "leaf",
+            "state": {
+              "type": "file-explorer",
+              "state": {
+                "sortOrder": "alphabetical",
+                "autoReveal": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-folder-closed",
+              "title": "Files"
+            }
+          },
+          {
+            "id": "ceb047e7f7525a11",
+            "type": "leaf",
+            "state": {
+              "type": "search",
+              "state": {
+                "query": "",
+                "matchingCase": false,
+                "explainSearch": false,
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical"
+              },
+              "icon": "lucide-search",
+              "title": "Search"
+            }
+          },
+          {
+            "id": "127ae69697ae8f4e",
+            "type": "leaf",
+            "state": {
+              "type": "bookmarks",
+              "state": {
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-bookmark",
+              "title": "Bookmarks"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300
+  },
+  "right": {
+    "id": "09fd6968059cc973",
+    "type": "split",
+    "children": [
+      {
+        "id": "545d5e5258052bc7",
+        "type": "tabs",
+        "children": [
+          {
+            "id": "5325b117d64dd0c1",
+            "type": "leaf",
+            "state": {
+              "type": "backlink",
+              "state": {
+                "file": "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
+                "collapseAll": false,
+                "extraContext": false,
+                "sortOrder": "alphabetical",
+                "showSearch": false,
+                "searchQuery": "",
+                "backlinkCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-coming-in",
+              "title": "Backlinks"
+            }
+          },
+          {
+            "id": "a8aa49461102ac40",
+            "type": "leaf",
+            "state": {
+              "type": "outgoing-link",
+              "state": {
+                "file": "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
+                "linksCollapsed": false,
+                "unlinkedCollapsed": true
+              },
+              "icon": "links-going-out",
+              "title": "Outgoing links"
+            }
+          },
+          {
+            "id": "5bc3f6a85df7735d",
+            "type": "leaf",
+            "state": {
+              "type": "tag",
+              "state": {
+                "sortOrder": "frequency",
+                "useHierarchy": true,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-tags",
+              "title": "Tags"
+            }
+          },
+          {
+            "id": "1f797f5dd4544daf",
+            "type": "leaf",
+            "state": {
+              "type": "all-properties",
+              "state": {
+                "sortOrder": "frequency",
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-archive",
+              "title": "All properties"
+            }
+          },
+          {
+            "id": "414616967d13253a",
+            "type": "leaf",
+            "state": {
+              "type": "outline",
+              "state": {
+                "file": "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
+                "followCursor": false,
+                "showSearch": false,
+                "searchQuery": ""
+              },
+              "icon": "lucide-list",
+              "title": "Outline"
+            }
+          }
+        ]
+      }
+    ],
+    "direction": "horizontal",
+    "width": 300,
+    "collapsed": true
+  },
+  "left-ribbon": {
+    "hiddenItems": {
+      "switcher:Open quick switcher": false,
+      "graph:Open graph view": false,
+      "canvas:Create new canvas": false,
+      "daily-notes:Open today's daily note": false,
+      "templates:Insert template": false,
+      "command-palette:Open command palette": false,
+      "bases:Create new base": false
+    }
+  },
+  "active": "8f64a097ce1ad7c3",
+  "lastOpenFiles": [
+    "02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov.md.tmp.20512.e015cd96e9d6",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent.md.tmp.20512.05fde7146050",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent.md",
+    "Index.md.tmp.20512.c4466ad92f14",
+    "01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor.md",
+    "04 - Ring 3 (Data & Training Pipelines)/Real-Time Benchmark & Telemetry Dashboard.md",
+    "03 - Ring 2 (Models & Transformers)/Dynamic Adaptive Vocabulary Sizing (10k Scaling).md",
+    "04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture.md",
+    "04 - Ring 3 (Data & Training Pipelines)/Evaluation & Checkpoint Lifecycle.md",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
+    "01 - Ring 0 (Core Math & Hardware)/Numerical Stability & NaN Prevention Physics.md",
+    "04 - Ring 3 (Data & Training Pipelines)/Universal Data Ingestion (CSV, TXT, BIN).md",
+    "03 - Ring 2 (Models & Transformers)/Autoregressive KV-Cache Generation.md",
+    "00 - Overview & Architecture/Ring Dependency Hierarchy.md",
+    "05 - Theoretical Foundations & Physics/Adaptive Focal Loss Theory.md",
+    "05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information.md",
+    "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
+    "03 - Ring 2 (Models & Transformers)/Semantic VocabManager & Lexicon Clusters.md",
+    "03 - Ring 2 (Models & Transformers)/BPE Tokenizer & Merging Engine.md",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov.md",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi.md",
+    "01 - Ring 0 (Core Math & Hardware)/Config & Telemetry Systems.md",
+    "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
+    "00 - Overview & Architecture/System Roadmap.md",
+    "05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization.md",
+    "05 - Theoretical Foundations & Physics",
+    "04 - Ring 3 (Data & Training Pipelines)/Token Relevancy & Interpolated Parsing.md",
+    "04 - Ring 3 (Data & Training Pipelines)",
+    "03 - Ring 2 (Models & Transformers)/TransformerLM Decoder (GQA + SwiGLU + RoPE).md",
+    "03 - Ring 2 (Models & Transformers)",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
+    "02 - Ring 1 (Layers & Advanced Optimizers)",
+    "01 - Ring 0 (Core Math & Hardware)",
+    "00 - Overview & Architecture"
+  ]
+}
