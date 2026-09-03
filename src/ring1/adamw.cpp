@@ -261,25 +261,31 @@ namespace ring1
         for (int i_idx = 0; i_idx < static_cast<int>(param.data.size()); ++i_idx)
         {
             size_t i = static_cast<size_t>(i_idx);
-            float g = grad.data[i];
-            float w = param.data[i];
+            float g = grad.data[i];   // this element's gradient
+            float w = param.data[i];  // this element's current value
 
+            // Defensive: a NaN/Inf gradient or weight would poison the moments forever.
             if (std::isnan(g) || std::isinf(g)) g = 0.0f;
             if (std::isnan(w) || std::isinf(w)) w = 0.0f;
 
-            // 1. First moment (running average of gradient)
+            // --- Adam's two running averages (per weight) ---
+            // 1. First moment m = EMA of the gradient  ->  "which direction, smoothed"
             float new_m = beta1 * m.data[i] + (1.0f - beta1) * g;
             m.data[i] = (std::isnan(new_m) || std::isinf(new_m)) ? 0.0f : new_m;
 
-            // 2. Second moment (running average of squared gradient)
+            // 2. Second moment v = EMA of gradient^2   ->  "how big/noisy this weight's
+            //    gradient has been"; used to shrink steps for high-variance weights.
             float new_v = beta2 * v.data[i] + (1.0f - beta2) * g * g;
             v.data[i] = (std::isnan(new_v) || std::isinf(new_v) || new_v < 0.0f) ? 0.0f : new_v;
 
-            // 3. Empirical Diagonal Fisher Information Metric: F_ii = E[(d log P / dw)^2]
+            // 3. Diagonal Fisher information F = EMA of gradient^2 (slower decay). Estimates
+            //    the local curvature of the loss (natural-gradient preconditioner). Similar
+            //    to v but with its own horizon so the two can be blended independently.
             float new_f = 0.95f * f.data[i] + 0.05f * (g * g);
             f.data[i] = (std::isnan(new_f) || std::isinf(new_f) || new_f < 0.0f) ? 0.0f : new_f;
 
-            // 4. Bias-corrected estimates
+            // 4. Bias correction: early in training the EMAs start at 0 and are biased low,
+            //    so divide by (1 - beta^t) to de-bias them (standard Adam correction).
             float m_hat = (beta1_corr > 1e-7f) ? (m.data[i] / beta1_corr) : m.data[i];
             float v_hat = (beta2_corr > 1e-7f) ? (v.data[i] / beta2_corr) : v.data[i];
             float f_hat = (beta2_corr > 1e-7f) ? (f.data[i] / beta2_corr) : f.data[i];
@@ -287,7 +293,12 @@ namespace ring1
             float delta_w = 0.0f;
 
             if (use_multi_formula) {
-                // Compute importance factor I(w_i) in [0.0, 1.0] with relative scaling
+                // 4-FORMULA WEIGHT PHYSICS: not every weight deserves the same update rule.
+                // Score this weight's "importance" in [0,1] (from its gradient salience and
+                // Fisher curvature relative to the tensor's norms), then route it to one of
+                // four specialized update formulas by importance band. High-importance
+                // weights get careful natural-gradient steps; low-importance ones get cheap
+                // decay/pruning. (See multi_formula_optimizer.cpp for each formula.)
                 float importance = MultiFormulaKernel::compute_importance(w, g, f_hat, norm_g, norm_w, num_elems);
 
                 WeightFormulaType formula;
