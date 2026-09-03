@@ -16,7 +16,7 @@ Language models do not generate entire sentences at once. They are **autoregress
 
 ---
 
-## ⚡ The KV-Cache Breakthrough ($O(T^2) \to O(1)$)
+## ⚡ KV-Cache: $O(T^2) \to O(1)$ Per-Token Decoding
 
 ### The Naive Method (Extremely Slow)
 Suppose you have already generated 1,000 words. To generate word 1,001:

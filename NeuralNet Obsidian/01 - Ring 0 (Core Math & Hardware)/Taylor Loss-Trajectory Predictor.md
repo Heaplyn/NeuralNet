@@ -6,6 +6,12 @@ The **Taylor Trajectory Predictor** (`ring0::TaylorTrajectoryPredictor`) forecas
 
 ---
 
+## 📎 Relation to prior work (no novelty claimed)
+
+This is a cheap engineering heuristic, not a new method. Extrapolating a loss curve from finite differences for scheduling/early-stopping is old practice; Newton–Gregory extrapolation is standard numerical analysis; the per-order trust damping exists precisely because high-order polynomial extrapolation of a noisy signal is unstable (the Runge phenomenon is real). Treat it as a low-cost foresight signal, useful mainly because it's nearly free — not as a theoretical advance.
+
+---
+
 ## 🎯 Practical Explanation: What is this and Why Does it Exist?
 
 ### The Problem: Every Controller Here Was Reactive

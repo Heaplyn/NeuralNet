@@ -23,7 +23,7 @@ Ring 0 (Foundation) ---> Ring 1 (Layers & Physics) ---> Ring 2 (Models) ---> Rin
 
 ---
 
-## ⚡ Core Innovations & Theoretical Breakthroughs
+## ⚡ Features
 
 ### 1. 🧠 Meta-Neural Loss & Step Optimizer Network (`Ring 1`)
 - Replaces static learning rate schedulers with an online auxiliary neural network ($12 \to 32 \to 16 \to 4$).

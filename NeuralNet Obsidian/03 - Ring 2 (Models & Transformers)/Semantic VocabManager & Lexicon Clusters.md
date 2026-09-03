@@ -49,7 +49,7 @@ When `VocabManager` identifies a new high-value token, it:
 $$\mathbf{e}_{\text{new}} = \frac{1}{|K|} \sum_{k \in K} \mathbf{e}_k + \mathcal{N}(0, 0.02^2)$$
 
 > [!TIP]
-> **Why this is a breakthrough**: The new token enters the network already understanding its general semantic meaning, requiring only a few gradient steps to fine-tune its exact nuance!
+> **Why this helps**: The new token enters the network already carrying an approximate semantic meaning, so it needs only a few gradient steps to fine-tune its exact nuance.
 
 ---
 

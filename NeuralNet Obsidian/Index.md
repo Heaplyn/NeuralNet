@@ -1,6 +1,6 @@
 # 🧠 NeuralNet: RingWrapper Causal Transformer & Meta-Learning Engine
 
-Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains comprehensive documentation, mathematical proofs, architectural specifications, and implementation details for the **RingWrapper Causal Transformer LLM** and its novel meta-learning optimization framework.
+Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains documentation, mathematical derivations, architectural specifications, and implementation details for the **RingWrapper Causal Transformer LLM** and its meta-learning optimization framework.
 
 ---
 
@@ -9,7 +9,7 @@ Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains compre
 ### 📌 [[00 - Overview & Architecture/Architecture Map|00 - Overview & Architecture]]
 - [[00 - Overview & Architecture/Architecture Map|Architecture Map & System Overview]]
 - [[00 - Overview & Architecture/Ring Dependency Hierarchy|Strict Ring Dependency Hierarchy (Ring 0 -> Ring 4)]]
-- [[00 - Overview & Architecture/System Roadmap|Frontier Capabilities Roadmap]]
+- [[00 - Overview & Architecture/System Roadmap|Capabilities Roadmap]]
 
 ### ⚡ [[01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math|01 - Ring 0 (Core Math & Hardware)]]
 - [[01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math|Tensor3D, Matrix & Block Cache Multiplication]]

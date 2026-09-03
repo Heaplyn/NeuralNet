@@ -36,7 +36,7 @@ Layers that directly contributed to loss reduction receive higher learning rates
 
 ## 🛡️ Step Safety: Trust Region & Dimension Damping
 
-Powerful as the update rule is, its *raw* step magnitude needed two guardrails. Without them, once the [[03 - Ring 2 (Models & Transformers)/TransformerLM Decoder (GQA + SwiGLU + RoPE)|fast-start bias init]] produced real gradients, a single step could detonate the loss from **8.7 → 47**. Both guardrails live inside `update_param`, right before the weight is written.
+The raw step magnitude needs two guardrails. Without them, once the [[03 - Ring 2 (Models & Transformers)/TransformerLM Decoder (GQA + SwiGLU + RoPE)|fast-start bias init]] produced real gradients, a single step could push the loss from **8.7 → 47**. Both guardrails live inside `update_param`, right before the weight is written.
 
 ### 1. Loss-adaptive trust region (`config.max_step`)
 The per-element step is clamped to `±max_step`, and `max_step` is **inverse to the loss** — tight when loss is high (unstable), loose when low (converging):

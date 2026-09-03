@@ -105,8 +105,9 @@ namespace ring1
         prev_loss *= .3f; // decay previous loss to avoid large initial reward spike
         prev_delta_loss *= 0.2f;
         step_count = 0;
-        meta_lr = 0.2f; // raised from 0.005: the reward signal near a plateau is tiny,
-                        // so a larger meta step is needed for the policy to actually move.
+        meta_lr = 0.02f; // moderate: 0.005 was too small to move the policy at all,
+                         // 0.2 caused it to slam its knobs between rails every step
+                         // (loss-scale 0.2x <-> 4.0x -> whipsawed main-model gradients).
     }
 
     MetaOptimizationOutput MetaLossOptimizer::predict(const MetaLossTelemetry &telemetry)
@@ -199,7 +200,7 @@ namespace ring1
             static thread_local std::mt19937 expl_rng(1337);
             std::normal_distribution<float> jitter(0.0f, 1.0f);
             float anneal = 1.0f / (1.0f + 0.002f * static_cast<float>(step_count)); // 1.0 -> ~0.33 over ~1000 steps
-            float noise_amp = 0.35f * anneal + 0.05f;                               // floor of 0.05 so it never dies
+            float noise_amp = 0.10f * anneal + 0.02f;                               // small: narrow output ranges + EMA smoothing already provide stability
             for (size_t j = 0; j < 4; ++j)
             {
                 logits[j] = std::clamp(logits[j] + noise_amp * jitter(expl_rng), -30.0f, 30.0f);
@@ -208,11 +209,26 @@ namespace ring1
 
         // Map each raw logit through sigmoid -> (0,1), then rescale to that knob's
         // physical range and hard-clamp. sigmoid(0)=0.5, so an untrained network sits
-        // at the MIDDLE of every range (the exploration noise above nudges it off-center).
-        last_output.loss_scale_multiplier = std::clamp(0.2f + 3.8f * meta_sigmoid(logits[0]), 0.2f, 4.0f); // gradient push [0.2, 4.0]
-        last_output.dynamic_focal_gamma = std::clamp(3.0f * meta_sigmoid(logits[1]), 0.0f, 3.0f);          // hard-token focus [0.0, 3.0]
-        last_output.lr_step_modulator = std::clamp(0.5f + 2.5f * meta_sigmoid(logits[2]), 0.5f, 3.0f);     // LR multiplier [0.5, 3.0]
-        last_output.curvature_scale = std::clamp(0.2f + 2.3f * meta_sigmoid(logits[3]), 0.2f, 2.5f);       // step preconditioning [0.2, 2.5]
+        // at the MIDDLE of every range.
+        // NARROW ranges: the meta-network is only allowed to make GENTLE adjustments
+        // near 1.0, not the wide [0.2,4.0]/[0,3] swings that let it destabilize training.
+        // A small model is dominated by the base optimizer + init; the meta knobs should
+        // nudge, not dominate.
+        float raw_loss_scale = std::clamp(0.7f + 0.8f * meta_sigmoid(logits[0]), 0.7f, 1.5f);  // gradient push [0.7, 1.5]
+        float raw_focal      = std::clamp(1.0f * meta_sigmoid(logits[1]), 0.0f, 1.0f);         // hard-token focus [0.0, 1.0]
+        float raw_lr_mod     = std::clamp(0.8f + 0.45f * meta_sigmoid(logits[2]), 0.8f, 1.25f);// LR multiplier [0.8, 1.25]
+        float raw_curv       = std::clamp(0.7f + 0.6f * meta_sigmoid(logits[3]), 0.7f, 1.3f);  // step preconditioning [0.7, 1.3]
+
+        // OUTPUT SMOOTHING (EMA). The online policy-gradient update is noisy, so the raw
+        // knobs can slam between their rails from one step to the next (e.g. loss-scale
+        // 0.2x <-> 4.0x every step), which whipsaws the main model's gradient scale and
+        // destabilizes training. Blend slowly toward the new values so the applied knobs
+        // move gradually instead of bang-banging. (alpha small = heavy smoothing.)
+        const float alpha = 0.15f;
+        last_output.loss_scale_multiplier = (1.0f - alpha) * last_output.loss_scale_multiplier + alpha * raw_loss_scale;
+        last_output.dynamic_focal_gamma   = (1.0f - alpha) * last_output.dynamic_focal_gamma   + alpha * raw_focal;
+        last_output.lr_step_modulator     = (1.0f - alpha) * last_output.lr_step_modulator     + alpha * raw_lr_mod;
+        last_output.curvature_scale       = (1.0f - alpha) * last_output.curvature_scale       + alpha * raw_curv;
 
         return last_output;
     }

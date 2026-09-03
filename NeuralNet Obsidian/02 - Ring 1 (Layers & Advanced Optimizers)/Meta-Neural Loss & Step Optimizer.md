@@ -1,6 +1,6 @@
 # 🧠 Meta-Neural Loss & Step Optimizer Network
 
-The **Meta-Neural Loss Optimizer** (`ring1::MetaLossOptimizer`) is an online self-learning neural network that dynamically shapes the optimization landscape during training. It represents a breakthrough concept: **using an auxiliary neural network to train and tune the primary transformer network in real time**.
+The **Meta-Neural Loss Optimizer** (`ring1::MetaLossOptimizer`) is an online self-learning neural network that dynamically shapes the optimization landscape during training. In short: **an auxiliary neural network tunes the primary transformer network's optimization in real time**.
 
 ---
 

@@ -54,7 +54,7 @@ Standard language models cannot easily parse raw comma-separated values (`"Canad
 ```
 
 > [!TIP]
-> **Why this is powerful**: The transformer learns statistical correlations directly in English (e.g., that higher enrollment correlates with higher literacy rates)!
+> **Why this helps**: The transformer learns statistical correlations directly in English (e.g., that higher enrollment correlates with higher literacy rates).
 
 ---
 

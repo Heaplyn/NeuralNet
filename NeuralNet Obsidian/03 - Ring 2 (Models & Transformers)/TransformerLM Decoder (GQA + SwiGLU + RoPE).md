@@ -64,7 +64,7 @@ The two vectors are multiplied element-wise ($\odot$) before down-projecting:
 $$\text{SwiGLU}(\mathbf{x}) = (\mathbf{g} \odot \mathbf{u}) \mathbf{W}_{\text{down}}$$
 
 > [!IMPORTANT]
-> **Why this is powerful**: The **Gate** dynamically controls which specific features from the **Up Projection** are allowed to pass through! If the gate output is $0.0$, the feature is completely suppressed. This gives the network biological-like gating capabilities.
+> **What the gate does**: The **Gate** controls which features from the **Up Projection** pass through — a gate output near $0.0$ suppresses that feature, near $1.0$ lets it through. This is the standard SwiGLU gating used in modern transformers (PaLM, LLaMA).
 
 ---
 

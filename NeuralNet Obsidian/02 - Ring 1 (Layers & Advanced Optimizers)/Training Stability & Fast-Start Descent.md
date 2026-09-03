@@ -4,6 +4,12 @@ Three mechanisms that make cross-entropy loss **start low** and **descend withou
 
 ---
 
+## 📎 Relation to prior work (no novelty claimed)
+
+All three are established techniques, not new science: log-frequency bias initialization is a known trick for starting near the data distribution; loss/gradient-dependent step clipping is classic conservative (trust-region) optimization; and scaling updates by $1/\sqrt{\text{dim}}$ is the same spirit as Xavier/He initialization and attention's $1/\sqrt{d_k}$. They're listed here because they're the most grounded and practical parts of the engine — solid engineering, plainly described.
+
+---
+
 ## 🧠 The Big Picture (read this first)
 
 Imagine you're teaching someone to guess the next word in a sentence, and they start by assuming **every word in a 10,000-word dictionary is equally likely.** That's where an untrained language model begins. Two things go wrong at the start of training, and they're easy to mix up:

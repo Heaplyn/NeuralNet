@@ -1,6 +1,6 @@
-# 🗺️ Frontier Capabilities Roadmap & Milestones
+# 🗺️ Capabilities Roadmap & Milestones
 
-This document tracks the evolutionary milestones and upcoming frontier research directions for the **RingWrapper Neural Network** project.
+This document tracks the milestones and planned directions for the **RingWrapper Neural Network** project.
 
 ---
 
