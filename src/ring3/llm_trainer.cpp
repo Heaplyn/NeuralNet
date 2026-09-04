@@ -439,7 +439,8 @@ namespace ring3
         return LLMStepMetrics{
             optimizer.timestep, avg_loss, ppl, top1_acc, top20_acc, rank_score,
             optimizer.get_learning_rate(), T, optimizer.penalty_factor,
-            optimizer.ema_d_loss_d_penalty, meta_out.loss_scale_multiplier, meta_out.dynamic_focal_gamma};
+            optimizer.ema_d_loss_d_penalty, meta_out.loss_scale_multiplier, meta_out.dynamic_focal_gamma,
+            optimizer.taylor_penalty_confidence, optimizer.taylor_penalty_prediction};
     }
 
     void LLMTrainer::print_benchmark_dashboard(const BenchmarkTelemetry &tel, size_t current_step, size_t total_steps) const
@@ -486,7 +487,8 @@ namespace ring3
              << " | Rank-Score: " << fixed << setprecision(1) << tel.rank_score << "%\n";
         cout << "│  [Dynamic LR & Scale]  LR: " << fixed << setprecision(6) << tel.learning_rate
              << " (gain: " << fixed << setprecision(2) << dynamic_lr_gain << "x) | Penalty: "
-             << fixed << setprecision(3) << optimizer.penalty_factor << "\n";
+             << fixed << setprecision(3) << tel.penalty_factor << " (Taylor Conf: "
+             << fixed << setprecision(1) << (tel.taylor_penalty_conf * 100.0f) << "%)\n";
         cout << "├────────────────────────────────────────────────────────────────────────────────────────┤\n";
         cout << "│  [Adaptive Vocab 10k]  Active Vocab: " << tel.active_vocab_size << " / 10,000 subwords ("
              << fixed << setprecision(1) << (static_cast<float>(tel.active_vocab_size) / 10000.0f * 100.0f) << "% capacity)\n";
@@ -861,6 +863,9 @@ namespace ring3
                 tel.top20_accuracy = metrics.top20_accuracy;
                 tel.rank_score = metrics.rank_score_top20;
                 tel.learning_rate = applied_lr;
+                tel.penalty_factor = optimizer.penalty_factor;
+                tel.taylor_penalty_conf = optimizer.taylor_penalty_confidence;
+                tel.taylor_penalty_pred = optimizer.taylor_penalty_prediction;
                 tel.active_vocab_size = model.config.vocab_size;
                 tel.active_context_length = current_seq_len;
                 tel.active_model_layers = model.num_active_layers;

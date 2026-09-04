@@ -74,11 +74,17 @@ namespace ring1
         vector<float> layer_attributions;  ///< Historical attribution scores per layer
 
         // --- Penalization Derivative Tracking & Auto-Adjustment ---
-        float penalty_factor = 0.09f;      ///< Active penalization multiplier
-        float last_penalty_applied = 0.0f; ///< Penalty magnitude at previous step
-        float last_loss_observed = 0.0f;   ///< Previous loss observation
-        float d_loss_d_penalty = 0.0f;     ///< Instantaneous empirical derivative d(Loss) / d(Penalty)
-        float ema_d_loss_d_penalty = 0.0f; ///< Smoothed derivative of penalization impact on loss
+        float penalty_factor = 0.09f;             ///< Active penalization multiplier
+        float last_penalty_applied = 0.0f;        ///< Penalty magnitude at previous step
+        float last_loss_observed = 0.0f;          ///< Previous loss observation
+        float d_loss_d_penalty = 0.0f;            ///< Instantaneous empirical 1st derivative d(Loss) / d(Penalty)
+        float last_d_loss_d_penalty = 0.0f;       ///< Previous 1st derivative for 2nd-order finite difference
+        float ema_d_loss_d_penalty = 0.0f;        ///< Smoothed 1st derivative of penalization impact on loss
+        float d2_loss_d_penalty2 = 0.0f;          ///< Empirical 2nd derivative d^2(Loss) / d(Penalty)^2
+        float ema_d2_loss_d_penalty2 = 0.0f;      ///< Smoothed 2nd derivative (curvature)
+        float taylor_penalty_prediction = 0.0f;   ///< Predicted Taylor optimal penalty update Delta pen_Taylor
+        float taylor_penalty_confidence = 0.0f;   ///< Confidence score C in [0, 1] for Taylor prediction
+        size_t penalty_observation_count = 0;     ///< Number of sequential observations for warmup gating
 
         // --- Multi-Formula Physics Statistics ---
         FormulaDistributionStats last_formula_stats;

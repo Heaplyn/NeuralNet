@@ -16,6 +16,7 @@ Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains docume
 - [[01 - Ring 0 (Core Math & Hardware)/Activation Functions|Activation Functions (GELU, SwiGLU, Softmax, Sigmoid)]]
 - [[01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus|Loss Formulations, Scale Multipliers & Derivatives]]
 - [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor (nth-Order Foresight & Trajectory Reward)]]
+- [[01 - Ring 0 (Core Math & Hardware)/Taylor Penalty Prediction & Confidence Gating|Taylor Penalty Prediction & Multi-Factor Confidence Gating]]
 - [[01 - Ring 0 (Core Math & Hardware)/Numerical Stability & NaN Prevention Physics|Numerical Stability, NaN Prevention & Gradient Sanitization Physics]]
 - [[01 - Ring 0 (Core Math & Hardware)/CUDA & Hardware Acceleration Engine|CUDA GPU Acceleration & OpenMP/AVX CPU Fallback]]
 - [[01 - Ring 0 (Core Math & Hardware)/Config & Telemetry Systems|Runtime Configuration & Telemetry Hooks]]

@@ -89,6 +89,8 @@ struct LLMStepMetrics {
     float d_loss_d_penalty;    ///< Derivative of penalization impact on loss d(Loss)/d(Penalty)
     float meta_loss_scale;     ///< Meta-predicted loss scaling multiplier
     float meta_focal_gamma;    ///< Meta-predicted dynamic focal loss exponent
+    float taylor_penalty_conf; ///< Confidence score C in [0, 1] for Taylor penalty prediction
+    float taylor_penalty_pred; ///< Taylor predicted optimal penalty step
 };
 
 /**
@@ -108,6 +110,9 @@ struct BenchmarkTelemetry {
     float top20_accuracy = 0.0f;
     float rank_score = 0.0f;
     float learning_rate = 0.0f;
+    float penalty_factor = 0.0f;
+    float taylor_penalty_conf = 0.0f;
+    float taylor_penalty_pred = 0.0f;
     size_t active_vocab_size = 0;
     size_t active_context_length = 0;
     size_t active_model_layers = 0;

@@ -136,37 +136,91 @@ namespace ring1
     {
         if (last_loss_observed > 0.0f)
         {
+            penalty_observation_count++;
             float delta_loss = current_loss - last_loss_observed;
             float delta_penalty = penalty_factor - last_penalty_applied;
 
+            // 1. Compute 1st-order empirical derivative d(Loss) / d(Penalty)
             if (fabsf(delta_penalty) > 1e-4f)
             {
-                // Exact bounded empirical derivative
                 float raw_deriv = delta_loss / delta_penalty;
-                d_loss_d_penalty = std::clamp(raw_deriv, -2.0f, 2.0f);
+                d_loss_d_penalty = std::clamp(raw_deriv, -2.5f, 2.5f);
             }
             else
             {
                 d_loss_d_penalty = std::clamp(delta_loss * 2.0f, -1.0f, 1.0f);
             }
 
-            // Heavy EMA smoothing to eliminate single-batch noise (alpha = 0.10)
-            const float alpha = 0.10f;
-            ema_d_loss_d_penalty = (1.0f - alpha) * ema_d_loss_d_penalty + alpha * d_loss_d_penalty;
+            // 2. Compute 2nd-order empirical derivative (curvature) d^2(Loss) / d(Penalty)^2
+            if (fabsf(delta_penalty) > 1e-4f && penalty_observation_count > 1)
+            {
+                float raw_d2 = (d_loss_d_penalty - last_d_loss_d_penalty) / delta_penalty;
+                d2_loss_d_penalty2 = std::clamp(raw_d2, -10.0f, 10.0f);
+            }
+            else
+            {
+                d2_loss_d_penalty2 = 0.5f; // default gentle convex prior
+            }
 
-            // Stable bounded penalty adjustment
-            float penalty_step = -0.02f * tanhf(ema_d_loss_d_penalty);
+            // 3. Smooth 1st and 2nd derivatives with EMA
+            const float alpha1 = 0.10f;
+            const float alpha2 = 0.08f;
+            ema_d_loss_d_penalty = (1.0f - alpha1) * ema_d_loss_d_penalty + alpha1 * d_loss_d_penalty;
+            ema_d2_loss_d_penalty2 = (1.0f - alpha2) * ema_d2_loss_d_penalty2 + alpha2 * d2_loss_d_penalty2;
+
+            // 4. Taylor Series Optimal Penalty Step Prediction:
+            // Delta pen_Taylor = - (d L / d pen) / max(|d^2 L / d pen^2|, 0.15)
+            float curvature_denom = std::max(0.15f, fabsf(ema_d2_loss_d_penalty2));
+            taylor_penalty_prediction = - (ema_d_loss_d_penalty / curvature_denom);
+            taylor_penalty_prediction = std::clamp(taylor_penalty_prediction, -0.04f, 0.04f);
+
+            // 5. Compute Dynamic Confidence Score C in [0.0, 1.0] for the Taylor prediction
+            // Criterion A: Directional consistency between Taylor gradient and empirical loss shift
+            float s_dir = 0.35f;
+            if ((taylor_penalty_prediction > 0.0f && delta_loss > 0.0f) ||
+                (taylor_penalty_prediction < 0.0f && delta_loss < 0.0f))
+            {
+                s_dir = 0.95f; // Taylor direction agrees with empirical loss feedback
+            }
+            else if (fabsf(delta_loss) < 0.02f)
+            {
+                s_dir = 0.70f; // Near equilibrium
+            }
+
+            // Criterion B: Convexity score (Taylor minimum exists only on convex surfaces d2 > 0)
+            float s_cvx = (ema_d2_loss_d_penalty2 > 0.0f) ? 1.0f : 0.25f;
+
+            // Criterion C: Signal-to-Noise Ratio of derivative estimates
+            float noise_estimate = fabsf(d_loss_d_penalty - ema_d_loss_d_penalty);
+            float signal_estimate = fabsf(ema_d_loss_d_penalty);
+            float s_snr = signal_estimate / (signal_estimate + noise_estimate + 1e-4f);
+
+            // Criterion D: Sample warmup ramp (starts cautious, scales up over 20 steps)
+            float s_warmup = std::min(1.0f, static_cast<float>(penalty_observation_count) / 20.0f);
+
+            // Final Confidence Score C in [0.0, 1.0]
+            taylor_penalty_confidence = std::clamp(s_dir * s_cvx * s_snr * s_warmup, 0.0f, 1.0f);
+
+            // 6. Base Heuristic Penalty Adjustment
+            float heuristic_step = -0.02f * tanhf(ema_d_loss_d_penalty);
             if (loss_delta > 0.10f)
             {
-                penalty_step += 0.02f; // Loss spiking: increase regularization penalty
+                heuristic_step += 0.02f; // Loss spiking: increase regularization penalty
             }
             else if (loss_delta < -0.05f)
             {
-                penalty_step -= 0.01f; // Loss descending: relax penalty
+                heuristic_step -= 0.01f; // Loss descending: relax penalty
             }
 
+            // 7. Confidence-Skewed Blending:
+            // Multiply/skew the Taylor prediction by confidence C, blending smoothly with heuristic
+            float applied_penalty_step = (taylor_penalty_confidence * taylor_penalty_prediction) +
+                                         ((1.0f - taylor_penalty_confidence) * heuristic_step);
+
             // Strictly bounded in [0.01, 1.50]
-            penalty_factor = std::clamp(penalty_factor + penalty_step, 0.01f, 1.50f);
+            penalty_factor = std::clamp(penalty_factor + applied_penalty_step, 0.01f, 1.50f);
+
+            last_d_loss_d_penalty = d_loss_d_penalty;
         }
 
         last_penalty_applied = penalty_factor;
