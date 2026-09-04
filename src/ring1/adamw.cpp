@@ -72,7 +72,7 @@ namespace ring1
 
         if (delta < -0.01f)
         {
-            float effective_penalty_factor = penalty_factor * loss_mult;
+            float effective_penalty_factor = penalty_factor * loss_mult * .2f;
             float penalty = min(0.90f, (current_loss - ema_loss) * effective_penalty_factor);
 
             // Loss is actively dropping: aggressive descent surge with no upper limit
@@ -83,10 +83,10 @@ namespace ring1
         else if (delta > 0.15f)
         {
             // Clear macro loss spike: stabilize using derivative-tuned penalty_factor and loss scaling multiplier
-            float effective_penalty_factor = penalty_factor * loss_mult;
+            float effective_penalty_factor = penalty_factor * loss_mult * .2f;
             float penalty = min(0.90f, (current_loss - ema_loss) * effective_penalty_factor);
-            config.lr *= (0.93f / (1.0f + penalty));
-            config.beta1 = 0.95f / (1.0f + penalty);
+            config.lr *= (10.0f / (1.0f + penalty));
+            config.beta1 = 9.2f / (1.0f + penalty);
             last_penalty_applied = penalty;
         }
         else
@@ -115,7 +115,7 @@ namespace ring1
         for (size_t i = 0; i < layer_scales.size(); ++i)
         {
             // Natural gentle mean-reversion towards 1.0 (prevents noise throttling)
-            layer_scales[i] = 0.99f * layer_scales[i] + 0.01f * 1.0f;
+            layer_scales[i] = 0.4f * layer_scales[i] + 0.01f * .2f;
 
             if (loss_delta < -0.05f)
             {
@@ -126,8 +126,8 @@ namespace ring1
             else if (loss_delta > 0.15f)
             {
                 // Damped by dynamically tuned attribution penalty
-                float layer_penalty = min(0.90f, loss_delta * effective_penalty_factor * 5.0f);
-                layer_scales[i] = max(0.2f, layer_scales[i] * (1.0f - layer_penalty));
+                float layer_penalty = min(0.90f, loss_delta * effective_penalty_factor * .5f);
+                layer_scales[i] = max(0.9f, layer_scales[i] * (1.0f - layer_penalty * .2f));
                 layer_attributions[i] -= 1.0f;
             }
         }
@@ -173,7 +173,7 @@ namespace ring1
             }
 
             // Dynamically update active penalty factor
-            penalty_factor = max(0.00005f, min(30.0f, penalty_factor + penalty_step * max(1.0f / loss_delta, 0.08f)));
+            penalty_factor = max(0.00005f, min(30.0f, penalty_factor + penalty_step * max(1.0f / loss_delta, 0.02f))) - penalty_factor * .01f; // slight decay to prevent runaway
         }
 
         last_penalty_applied = penalty_factor;

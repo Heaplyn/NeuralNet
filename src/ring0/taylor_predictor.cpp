@@ -93,7 +93,7 @@ namespace ring0
         for (size_t j = 0; j < n; ++j)
         {
             float child_reliab = 1.0f / (1.0f + ema_order_err_[j + 1]);
-            float adjust = 0.9f + 0.2f * child_reliab; // in [0.9, 1.1]
+            float adjust = 0.6f + 0.6f * child_reliab; // in [0.9, 1.1]
             raw[j] *= adjust;
         }
 

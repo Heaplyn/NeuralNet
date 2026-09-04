@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
     size_t cli_steps = 25000;
     size_t cli_batch_size = 32;
     size_t cli_max_vocab_size = 10000; // Scalable up to 10k+ tokens
-    float cli_lr = 0.0035f;
+    float cli_lr = 0.35f;
     bool cli_debug = false;
 
     for (int i = 1; i < argc; ++i)
@@ -512,7 +512,7 @@ int main(int argc, char *argv[])
     lm_cfg.embed_dim = 128;
     lm_cfg.num_heads = 8;
     lm_cfg.num_kv_heads = 4; // Grouped-Query Attention (4 Query heads, 2 KV heads)
-    lm_cfg.num_layers = 10;
+    lm_cfg.num_layers = 5;
     lm_cfg.ffn_dim = 256;
 
     ring2::TransformerLM model(lm_cfg);

@@ -348,6 +348,23 @@ namespace ring3
             avg_loss = ema_initialized ? ema_loss_short : 4.5f;
             grad_logits.sanitize_nan_inf(0.0f, -0.5f, 0.5f);
         }
+
+        // Sanity ceiling. For a vocab of size V, natural cross-entropy sits in [0, ln V]
+        // (~9.2 for V=10k); anything much above that means the softmax has degenerated
+        // (blown-up logits). Cap at 2*ln(V) with a floor of 12 so a single toxic step
+        // doesn't report loss=30-40, doesn't poison the EMA, and doesn't shove the
+        // meta-network into overreacting.
+        float V_f = static_cast<float>(V);
+        float loss_ceiling = max(12.0f, 2.0f * log(max(2.0f, V_f)));
+        bool was_spike = (avg_loss > loss_ceiling);
+        if (was_spike)
+        {
+            // Clamp the reported number and also sanitize the gradients so the
+            // downstream optimizer step doesn't run on garbage this iteration.
+            avg_loss = loss_ceiling;
+            grad_logits.sanitize_nan_inf(0.0f, -0.5f, 0.5f);
+        }
+
         float ppl = exp(min(avg_loss, 10.0f));
         if (std::isnan(ppl) || std::isinf(ppl))
             ppl = 999.0f;
@@ -361,8 +378,10 @@ namespace ring3
 
         // Online Policy Gradient update for Meta-Loss Network, optimized against the
         // Taylor-predicted loss trajectory (foresight reward) rather than only the
-        // last realized step.
-        if (config.enable_meta_loss_opt)
+        // last realized step. SKIP on a spike step: the reward would be a huge
+        // negative (this step's "loss went up by 20"), which teaches the meta-network
+        // noise rather than signal.
+        if (config.enable_meta_loss_opt && !was_spike)
         {
             if (last_forecast.valid)
             {
@@ -497,9 +516,17 @@ namespace ring3
             float scheduled_lr = compute_scheduled_lr(step, config.steps);
             float shrink = compute_loss_shrink();
             float current_loss_eval = ema_initialized ? ema_loss_short : (initial_loss > 0.0f ? initial_loss : 5.0f);
+            // INVERSE loss->LR relationship. compute_loss_scale_multiplier returns 3.0x
+            // at loss>=5 (originally meant to "escape plateaus" by boosting LR when
+            // stuck). At a fresh unstable start high loss != plateau, it just means
+            // we're far from good; multiplying LR by 3x here is the wrong direction
+            // and was one of the drivers of the loss going up to 30-40. Invert it:
+            // high loss -> smaller LR (careful steps), low loss -> larger LR (confident).
+            // Clamped inverse so we never divide by <=0 or overshoot.
             float loss_mult = ring0::Loss::compute_loss_scale_multiplier(current_loss_eval);
-            float applied_lr = scheduled_lr * shrink * dynamic_lr_gain * loss_mult;
-            applied_lr = min(config.learning_rate * 5.0f, max(1e-7f, applied_lr));
+            float inv_loss_mult = std::clamp(1.0f / std::max(0.25f, loss_mult), 0.33f, 3.0f);
+            float applied_lr = scheduled_lr * shrink * dynamic_lr_gain * inv_loss_mult;
+            applied_lr = min(config.learning_rate * .08f, max(1e-7f, applied_lr));
             optimizer.set_learning_rate(applied_lr);
 
             // Loss-adaptive per-element step trust region: tight while loss is high
