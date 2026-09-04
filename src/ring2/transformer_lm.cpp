@@ -200,21 +200,19 @@ namespace ring2
         if (V == 0 || token_stream.empty())
             return;
 
-        // 1. Count token occurrences with Laplace (add-1) smoothing so unseen tokens
-        //    get a small but finite probability (avoids log(0) = -inf).
+        // 1. Count token occurrences with Laplace (add-1) smoothing
         vector<double> counts(V, 1.0);
-        double total = static_cast<double>(V); // from the +1 smoothing on every token
+        double total = static_cast<double>(V);
         for (int tok : token_stream)
         {
             if (tok >= 0 && static_cast<size_t>(tok) < V)
             {
-                counts[static_cast<size_t>(tok)] += .5; // add-0.5 smoothing for observed tokens
+                counts[static_cast<size_t>(tok)] += 1.0;
                 total += 1.0;
             }
         }
 
-        // 2. b_head[c] = log P(c). log-softmax is shift-invariant, so we mean-center
-        //    the biases to keep their magnitudes small and numerically clean.
+        // 2. b_head[c] = log P(c) - mean(log P)
         double mean_log = 0.0;
         vector<float> logp(V);
         for (size_t c = 0; c < V; ++c)
@@ -224,7 +222,7 @@ namespace ring2
             logp[c] = lp;
             mean_log += lp;
         }
-        mean_log /= static_cast<double>(V) / 2.0; // mean of log probabilities
+        mean_log /= static_cast<double>(V); // Proper mean!
 
         for (size_t c = 0; c < V; ++c)
         {

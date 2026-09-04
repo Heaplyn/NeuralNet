@@ -114,20 +114,18 @@ namespace ring1
 
         for (size_t i = 0; i < layer_scales.size(); ++i)
         {
-            // Natural gentle mean-reversion towards 1.0 (prevents noise throttling)
-            layer_scales[i] = 0.4f * layer_scales[i] + 0.01f * .2f;
+            // Proper gentle mean-reversion towards 1.0 (5% pull per update)
+            layer_scales[i] = 0.95f * layer_scales[i] + 0.05f * 1.0f;
 
             if (loss_delta < -0.05f)
             {
-                // Uncapped layer attribution boost (max = inf)
-                layer_scales[i] *= 1.05f;
+                layer_scales[i] = min(1.35f, layer_scales[i] * 1.03f);
                 layer_attributions[i] += 1.0f;
             }
             else if (loss_delta > 0.15f)
             {
-                // Damped by dynamically tuned attribution penalty
-                float layer_penalty = min(0.90f, loss_delta * effective_penalty_factor * .5f);
-                layer_scales[i] = max(0.9f, layer_scales[i] * (1.0f - layer_penalty * .2f));
+                float layer_penalty = min(0.20f, loss_delta * effective_penalty_factor * 0.1f);
+                layer_scales[i] = max(0.75f, layer_scales[i] * (1.0f - layer_penalty));
                 layer_attributions[i] -= 1.0f;
             }
         }
@@ -143,37 +141,32 @@ namespace ring1
 
             if (fabsf(delta_penalty) > 1e-4f)
             {
-                // Exact empirical derivative: d(Loss) / d(Penalty)
-                d_loss_d_penalty = delta_loss / delta_penalty / (1.0f + fabsf(delta_loss)) * .25f; // scale to [-3, 3] range
+                // Exact bounded empirical derivative
+                float raw_deriv = delta_loss / delta_penalty;
+                d_loss_d_penalty = std::clamp(raw_deriv, -2.0f, 2.0f);
             }
             else
             {
-                // If delta penalty is small, estimate sensitivity direction from loss delta
-                d_loss_d_penalty = delta_loss * (penalty_factor > 0.5f ? 1.0f : -1.0f);
+                d_loss_d_penalty = std::clamp(delta_loss * 2.0f, -1.0f, 1.0f);
             }
 
-            // Exponential moving average filter to reduce stochastic batch noise
-            const float alpha = 0.85f;
+            // Heavy EMA smoothing to eliminate single-batch noise (alpha = 0.10)
+            const float alpha = 0.10f;
             ema_d_loss_d_penalty = (1.0f - alpha) * ema_d_loss_d_penalty + alpha * d_loss_d_penalty;
 
-            // Adaptive Sensitivity Feedback Rule: P_{t+1} = P_t - eta * (d Loss / d Penalty)
-            // If d(Loss)/d(Penalty) > 0: Increasing penalty caused loss to rise -> REDUCE penalty!
-            // If d(Loss)/d(Penalty) < 0: Increasing penalty caused loss to fall -> BOOST penalty!
-            float eta_penalty = 0.15f;
-            float penalty_step = -eta_penalty * tanhf(ema_d_loss_d_penalty * 0.5f);
-
-            // Immediate direct responsiveness to loss spikes/drops
+            // Stable bounded penalty adjustment
+            float penalty_step = -0.02f * tanhf(ema_d_loss_d_penalty);
             if (loss_delta > 0.10f)
             {
-                penalty_step += 0.05f; // Loss spiking: increase regularization penalty
+                penalty_step += 0.02f; // Loss spiking: increase regularization penalty
             }
             else if (loss_delta < -0.05f)
             {
-                penalty_step -= 0.03f; // Loss descending: relax penalty
+                penalty_step -= 0.01f; // Loss descending: relax penalty
             }
 
-            // Dynamically update active penalty factor
-            penalty_factor = max(0.00005f, min(30.0f, penalty_factor + penalty_step * max(1.0f / loss_delta, 0.02f))) - penalty_factor * .01f; // slight decay to prevent runaway
+            // Strictly bounded in [0.01, 1.50]
+            penalty_factor = std::clamp(penalty_factor + penalty_step, 0.01f, 1.50f);
         }
 
         last_penalty_applied = penalty_factor;
@@ -313,12 +306,12 @@ namespace ring1
                     formula = WeightFormulaType::FORMULA_1_GEODESIC_NATURAL_GRAD;
                     local_f1++;
                 }
-                else if (importance > 0.45f)
+                else if (importance > 0.40f)
                 {
                     formula = WeightFormulaType::FORMULA_2_CURVATURE_NESTEROV;
                     local_f2++;
                 }
-                else if (importance > 0.20f)
+                else if (importance > 0.10f || last_loss_observed > 3.0f)
                 {
                     formula = WeightFormulaType::FORMULA_3_VARIANCE_BOUNDED_ADAMW;
                     local_f3++;

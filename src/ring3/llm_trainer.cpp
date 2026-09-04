@@ -531,23 +531,34 @@ namespace ring3
                  << fixed << setprecision(1) << (current_dataset_ratio * 100.0f) << "% of corpus)\n\n";
         }
 
+        size_t context_jump_cooldown = 0;
+        size_t watchdog_recovery_cooldown = 0;
+
         for (size_t step = 1; step <= config.steps; ++step)
         {
             // 1. Scheduled LR with loss-adaptive decay slowdown, shrink, uncapped dynamic gain, and loss-scaling multiplier
-            // (>= 5.0: 3.0x, 4.0: 2.2x, 3.0: 1.6x, 2.0: 1.0x, <= 1.0: 0.3x)
             float scheduled_lr = compute_scheduled_lr(step, config.steps);
             float shrink = compute_loss_shrink();
             float current_loss_eval = ema_initialized ? ema_loss_short : (initial_loss > 0.0f ? initial_loss : 5.0f);
-            // INVERSE loss->LR relationship. compute_loss_scale_multiplier returns 3.0x
-            // at loss>=5 (originally meant to "escape plateaus" by boosting LR when
-            // stuck). At a fresh unstable start high loss != plateau, it just means
-            // we're far from good; multiplying LR by 3x here is the wrong direction
-            // and was one of the drivers of the loss going up to 30-40. Invert it:
-            // high loss -> smaller LR (careful steps), low loss -> larger LR (confident).
-            // Clamped inverse so we never divide by <=0 or overshoot.
+            
             float loss_mult = ring0::Loss::compute_loss_scale_multiplier(current_loss_eval);
             float inv_loss_mult = std::clamp(1.0f / std::max(0.25f, loss_mult), 0.33f, 3.0f);
             float applied_lr = scheduled_lr * shrink * dynamic_lr_gain * inv_loss_mult;
+
+            // Phase 1 fix: context jump cooldown temporarily reduces LR by 40%
+            if (context_jump_cooldown > 0)
+            {
+                applied_lr *= 0.60f;
+                context_jump_cooldown--;
+            }
+
+            // Phase 2 fix: watchdog recovery cooldown temporarily halves LR
+            if (watchdog_recovery_cooldown > 0)
+            {
+                applied_lr *= 0.50f;
+                watchdog_recovery_cooldown--;
+            }
+
             applied_lr = min(config.learning_rate * .08f, max(1e-7f, applied_lr));
             optimizer.set_learning_rate(applied_lr);
 
@@ -596,8 +607,9 @@ namespace ring3
                     float as = config.loss_shrink_short_alpha;
                     float al = config.loss_shrink_long_alpha;
                     float prev_ema = ema_loss_short;
-                    ema_loss_short = as * metrics.loss + (1.0f - sqrt(as)) * ema_loss_short;
-                    ema_loss_long = al * metrics.loss + (1.0f - sqrt(al)) * ema_loss_long;
+                    // Mathematically exact convex combination EMA (weights sum to 1.0)
+                    ema_loss_short = as * metrics.loss + (1.0f - as) * ema_loss_short;
+                    ema_loss_long = al * metrics.loss + (1.0f - al) * ema_loss_long;
 
                     // 4. Optimizer Self-Adjustment & Directional Weight Attribution Feedback
                     float loss_delta = metrics.loss - prev_ema;
@@ -609,15 +621,23 @@ namespace ring3
                     metrics.penalty_factor = optimizer.penalty_factor;
                     metrics.d_loss_d_penalty = optimizer.ema_d_loss_d_penalty;
 
-                    // Dynamic Learning Rate Surge Multiplier (bounded to stable convergence zone)
+                    // Dynamic Learning Rate Surge Multiplier (bounded strictly to [0.85, 1.25])
                     if (loss_delta < -0.01f)
                     {
-                        float surge = max(0.0f, min(0.2f, -loss_delta * 0.08f));
-                        dynamic_lr_gain = min(2.0f, dynamic_lr_gain * (1.0f + surge));
+                        float surge = max(0.0f, min(0.05f, -loss_delta * 0.05f));
+                        dynamic_lr_gain = min(1.25f, dynamic_lr_gain * (1.0f + surge));
                     }
                     else if (loss_delta > 0.15f)
                     {
-                        dynamic_lr_gain = max(0.5f, dynamic_lr_gain * 0.04f);
+                        dynamic_lr_gain = max(0.85f, dynamic_lr_gain * 0.95f);
+                    }
+
+                    // Stability Watchdog: detect unexpected loss spikes relative to recent stable EMA
+                    if (step > 15 && metrics.loss > 1.6f * ema_loss_short)
+                    {
+                        cout << "\n  ⚠️ [Stability Watchdog] Loss spike (" << fixed << setprecision(3) << metrics.loss
+                             << " vs EMA " << ema_loss_short << ") -> Activating 15-step recovery damping.\n";
+                        watchdog_recovery_cooldown = 15;
                     }
 
                     // 5. Dynamic Neurogenesis: Expand feature dimensions as loss drops significantly
@@ -737,6 +757,7 @@ namespace ring3
                             size_t old_len = current_seq_len;
                             current_seq_len = target_len;
                             model.expand_max_seq_len(current_seq_len);
+                            context_jump_cooldown = 20; // 20 steps of damped LR to settle on expanded window
                             cout << "\n  >> [Curriculum Token Horizon @ step " << step << "] Expanding context window: "
                                  << old_len << " -> " << current_seq_len << " tokens!\n\n";
                         }
@@ -748,6 +769,7 @@ namespace ring3
                             size_t old_len = current_seq_len;
                             current_seq_len = min(config.max_seq_len, static_cast<size_t>(128));
                             model.expand_max_seq_len(current_seq_len);
+                            context_jump_cooldown = 20;
                             cout << "\n  >> [Progressive Context Window] Loss (" << fixed << setprecision(2) << ema_loss_short
                                  << " < 2.5) mastered! Expanding token window: " << old_len << " -> " << current_seq_len << " tokens!\n\n";
                         }
@@ -756,6 +778,7 @@ namespace ring3
                             size_t old_len = current_seq_len;
                             current_seq_len = config.max_seq_len;
                             model.expand_max_seq_len(current_seq_len);
+                            context_jump_cooldown = 20;
                             cout << "\n  >> [Progressive Context Window] Quality Loss (" << fixed << setprecision(2) << ema_loss_short
                                  << " < 1.8) achieved! Expanding token window: " << old_len << " -> " << current_seq_len << " tokens!\n\n";
                         }
