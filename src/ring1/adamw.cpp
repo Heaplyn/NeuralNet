@@ -144,7 +144,7 @@ namespace ring1
             if (fabsf(delta_penalty) > 1e-4f)
             {
                 // Exact empirical derivative: d(Loss) / d(Penalty)
-                d_loss_d_penalty = delta_loss / delta_penalty;
+                d_loss_d_penalty = delta_loss / delta_penalty / (1.0f + fabsf(delta_loss)) * .25f; // scale to [-3, 3] range
             }
             else
             {
@@ -153,7 +153,7 @@ namespace ring1
             }
 
             // Exponential moving average filter to reduce stochastic batch noise
-            const float alpha = 0.5f;
+            const float alpha = 0.85f;
             ema_d_loss_d_penalty = (1.0f - alpha) * ema_d_loss_d_penalty + alpha * d_loss_d_penalty;
 
             // Adaptive Sensitivity Feedback Rule: P_{t+1} = P_t - eta * (d Loss / d Penalty)
@@ -173,7 +173,7 @@ namespace ring1
             }
 
             // Dynamically update active penalty factor
-            penalty_factor = max(0.05f, min(3.0f, penalty_factor + penalty_step));
+            penalty_factor = max(0.00005f, min(30.0f, penalty_factor + penalty_step * max(1.0f / loss_delta, 0.08f)));
         }
 
         last_penalty_applied = penalty_factor;
@@ -241,8 +241,10 @@ namespace ring1
         // Precompute tensor L2 norms for salience calculation
         float norm_g_sq = 0.0f;
         float norm_w_sq = 0.0f;
-        if (use_multi_formula) {
-            for (size_t i = 0; i < param.data.size(); ++i) {
+        if (use_multi_formula)
+        {
+            for (size_t i = 0; i < param.data.size(); ++i)
+            {
                 norm_g_sq += grad.data[i] * grad.data[i];
                 norm_w_sq += param.data[i] * param.data[i];
             }
@@ -250,23 +252,26 @@ namespace ring1
         const float norm_g = std::sqrt(norm_g_sq);
         const float norm_w = std::sqrt(norm_w_sq);
 
-        if (index == 0) {
+        if (index == 0)
+        {
             last_formula_stats = FormulaDistributionStats{};
         }
 
         size_t local_f1 = 0, local_f2 = 0, local_f3 = 0, local_f4 = 0;
         size_t num_elems = param.data.size();
 
-#pragma omp parallel for schedule(static) if (param.data.size() > 1024) reduction(+:local_f1, local_f2, local_f3, local_f4)
+#pragma omp parallel for schedule(static) if (param.data.size() > 1024) reduction(+ : local_f1, local_f2, local_f3, local_f4)
         for (int i_idx = 0; i_idx < static_cast<int>(param.data.size()); ++i_idx)
         {
             size_t i = static_cast<size_t>(i_idx);
-            float g = grad.data[i];   // this element's gradient
-            float w = param.data[i];  // this element's current value
+            float g = grad.data[i];  // this element's gradient
+            float w = param.data[i]; // this element's current value
 
             // Defensive: a NaN/Inf gradient or weight would poison the moments forever.
-            if (std::isnan(g) || std::isinf(g)) g = 0.0f;
-            if (std::isnan(w) || std::isinf(w)) w = 0.0f;
+            if (std::isnan(g) || std::isinf(g))
+                g = 0.0f;
+            if (std::isnan(w) || std::isinf(w))
+                w = 0.0f;
 
             // --- Adam's two running averages (per weight) ---
             // 1. First moment m = EMA of the gradient  ->  "which direction, smoothed"
@@ -292,7 +297,8 @@ namespace ring1
 
             float delta_w = 0.0f;
 
-            if (use_multi_formula) {
+            if (use_multi_formula)
+            {
                 // 4-FORMULA WEIGHT PHYSICS: not every weight deserves the same update rule.
                 // Score this weight's "importance" in [0,1] (from its gradient salience and
                 // Fisher curvature relative to the tensor's norms), then route it to one of
@@ -302,42 +308,55 @@ namespace ring1
                 float importance = MultiFormulaKernel::compute_importance(w, g, f_hat, norm_g, norm_w, num_elems);
 
                 WeightFormulaType formula;
-                if (importance > 0.65f) {
+                if (importance > 0.65f)
+                {
                     formula = WeightFormulaType::FORMULA_1_GEODESIC_NATURAL_GRAD;
                     local_f1++;
-                } else if (importance > 0.45f) {
+                }
+                else if (importance > 0.45f)
+                {
                     formula = WeightFormulaType::FORMULA_2_CURVATURE_NESTEROV;
                     local_f2++;
-                } else if (importance > 0.20f) {
+                }
+                else if (importance > 0.20f)
+                {
                     formula = WeightFormulaType::FORMULA_3_VARIANCE_BOUNDED_ADAMW;
                     local_f3++;
-                } else {
+                }
+                else
+                {
                     formula = WeightFormulaType::FORMULA_4_INERTIAL_SPARSE_DECAY;
                     local_f4++;
                 }
 
                 delta_w = MultiFormulaKernel::execute_update_formula(
                     formula, w, g, m_hat, v_hat, f_hat,
-                    effective_lr, beta1, beta1_corr, eps, effective_wd, curvature_scale
-                );
-            } else {
+                    effective_lr, beta1, beta1_corr, eps, effective_wd, curvature_scale);
+            }
+            else
+            {
                 // Standard baseline AdamW path
-                if (effective_wd > 0.0f) {
+                if (effective_wd > 0.0f)
+                {
                     w -= effective_lr * effective_wd * w;
                 }
                 float g_corr = (beta1_corr > 1e-7f) ? (g / beta1_corr) : g;
                 float step_m = config.use_nesterov ? (beta1 * m_hat + (1.0f - beta1) * g_corr) : m_hat;
                 float preconditioner = std::max(1e-7f, std::sqrt(std::max(0.0f, v_hat)) + eps);
-                if (config.use_natural_grad) {
+                if (config.use_natural_grad)
+                {
                     float fisher_val = std::sqrt(std::max(0.0f, f_hat)) + eps;
                     preconditioner = 0.7f * preconditioner + 0.3f * fisher_val;
                 }
                 delta_w = (effective_lr / preconditioner) * step_m;
             }
 
-            if (std::isnan(delta_w) || std::isinf(delta_w)) {
+            if (std::isnan(delta_w) || std::isinf(delta_w))
+            {
                 delta_w = 0.0f;
-            } else {
+            }
+            else
+            {
                 // Per-element step trust region, loss-adaptive (config.max_step,
                 // set each step via trust_region_for_loss). The old fixed ±2.0
                 // was 20-100x the ~0.02-0.1 init scale, so once real gradients
@@ -350,11 +369,14 @@ namespace ring1
 
             // 5. Parameter update & shift recording
             float updated_w = w - delta_w;
-            if (std::isnan(updated_w) || std::isinf(updated_w)) {
+            if (std::isnan(updated_w) || std::isinf(updated_w))
+            {
                 updated_w = 0.0f;
                 m.data[i] = 0.0f;
                 v.data[i] = 0.0f;
-            } else {
+            }
+            else
+            {
                 updated_w = std::clamp(updated_w, -30.0f, 30.0f);
             }
             param.data[i] = updated_w;
@@ -365,7 +387,8 @@ namespace ring1
             }
         }
 
-        if (use_multi_formula) {
+        if (use_multi_formula)
+        {
             last_formula_stats.count_f1 += local_f1;
             last_formula_stats.count_f2 += local_f2;
             last_formula_stats.count_f3 += local_f3;

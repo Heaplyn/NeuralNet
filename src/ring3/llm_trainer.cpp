@@ -193,7 +193,7 @@ namespace ring3
         telemetry.d_loss_d_penalty = optimizer.ema_d_loss_d_penalty;
         telemetry.gradient_variance = 0.01f;
         telemetry.layer_alignment = 0.85f;
-        telemetry.token_entropy = 4.5f;
+        telemetry.token_entropy = 0.5f;
         telemetry.learning_rate = optimizer.get_learning_rate();
         if (last_forecast.valid)
         {
@@ -215,7 +215,7 @@ namespace ring3
         if (config.enable_meta_loss_opt && last_forecast.valid)
         {
             // Nudge the optimizer penalty ahead of a predicted spike / relax before a drop.
-            optimizer.penalty_factor = clamp(optimizer.penalty_factor + 0.10f * last_forecast.penalty_foresight, 0.05f, 3.0f);
+            optimizer.penalty_factor = clamp(optimizer.penalty_factor * .55f + 0.02f * last_forecast.penalty_foresight, 0.00005f, 30.0f);
             // Predictive LR shaping (bolder into a forecast descent, damped into a rise).
             optimizer.config.lr *= clamp(last_forecast.lr_foresight_scale, 0.5f, 1.6f);
             optimizer.config.lr = max(0.000001f, min(20.0f, optimizer.config.lr));
@@ -435,8 +435,6 @@ namespace ring3
         cout << "│  [Model Dimensions]    " << tel.active_model_layers << "/" << model.blocks.size() << " Layers Active | Embed: "
              << model.config.embed_dim << " | Heads: " << model.config.num_heads << " ("
              << model.config.num_kv_heads << " KV GQA) | FFN: " << model.config.ffn_dim << "\n";
-        cout << "│  [Parameters Active]   " << tel.total_parameters << " float32 parameters ("
-             << fixed << setprecision(2) << (static_cast<float>(tel.total_parameters * sizeof(float)) / (1024.0f * 1024.0f)) << " MB)\n";
         cout << "├────────────────────────────────────────────────────────────────────────────────────────┤\n";
         cout << "│  [Loss & Convergence]  Loss: " << fixed << setprecision(4) << tel.current_loss
              << " (EMA: " << fixed << setprecision(4) << tel.ema_loss << ") | PPL: "
@@ -468,7 +466,7 @@ namespace ring3
                            const function<void(size_t)> &on_eval)
     {
 
-        float last_expansion_loss = 1e9f;
+        float last_expansion_loss = 1.0f;
         size_t expansion_count = 0;
         const size_t max_expansions = 20;
         // F4 (inertial sparse decay / pruning) saturation streak: when the optimizer
@@ -549,8 +547,8 @@ namespace ring3
                     float as = config.loss_shrink_short_alpha;
                     float al = config.loss_shrink_long_alpha;
                     float prev_ema = ema_loss_short;
-                    ema_loss_short = as * metrics.loss + (1.0f - as) * ema_loss_short;
-                    ema_loss_long = al * metrics.loss + (1.0f - al) * ema_loss_long;
+                    ema_loss_short = as * metrics.loss + (1.0f - sqrt(as)) * ema_loss_short;
+                    ema_loss_long = al * metrics.loss + (1.0f - sqrt(al)) * ema_loss_long;
 
                     // 4. Optimizer Self-Adjustment & Directional Weight Attribution Feedback
                     float loss_delta = metrics.loss - prev_ema;
@@ -565,18 +563,18 @@ namespace ring3
                     // Dynamic Learning Rate Surge Multiplier (bounded to stable convergence zone)
                     if (loss_delta < -0.01f)
                     {
-                        float surge = max(0.0f, min(0.2f, -loss_delta * 0.5f));
+                        float surge = max(0.0f, min(0.2f, -loss_delta * 0.08f));
                         dynamic_lr_gain = min(2.0f, dynamic_lr_gain * (1.0f + surge));
                     }
                     else if (loss_delta > 0.15f)
                     {
-                        dynamic_lr_gain = max(0.5f, dynamic_lr_gain * 0.90f);
+                        dynamic_lr_gain = max(0.5f, dynamic_lr_gain * 0.04f);
                     }
 
                     // 5. Dynamic Neurogenesis: Expand feature dimensions as loss drops significantly
                     if (step > 50 && expansion_count < max_expansions)
                     {
-                        if (ema_loss_short < (last_expansion_loss * 0.8f))
+                        if (ema_loss_short < (last_expansion_loss * 0.6f))
                         {
                             model.expand_capacity(1.4);
                             last_expansion_loss = ema_loss_short;
