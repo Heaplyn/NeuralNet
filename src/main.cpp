@@ -619,8 +619,10 @@ int main(int argc, char *argv[])
                      << " | Ctx: " << setw(3) << m.active_seq_len
                      << " | LR: " << fixed << setprecision(5) << m.learning_rate
                      << " | Loss: " << fixed << setprecision(4) << m.loss
+                     << " | |g|: " << fixed << setprecision(3) << trainer.last_grad_norm
                      << " | Pen: " << fixed << setprecision(3) << m.penalty_factor
                      << " | dL/dPen: " << showpos << fixed << setprecision(3) << m.d_loss_d_penalty << noshowpos;
+                if (trainer.watchdog_active) cout << " | [WATCHDOG]";
                 if (m.meta_loss_scale > 0.0f)
                 {
                     cout << " | Meta: " << fixed << setprecision(2) << m.meta_loss_scale << "x"

@@ -147,6 +147,22 @@ public:
     size_t current_seq_len = 32;
     float dynamic_lr_gain = 1.0f; ///< Uncapped dynamic learning rate surge multiplier (max = inf)
     size_t total_tokens_trained = 0;
+    float last_grad_norm = 0.0f;  ///< Most recent pre-clip global L2 gradient norm (0 on spike steps)
+
+    // --- Stability watchdog state (Phase 2 of the stability plan) ---
+    // Detects sustained loss RISE above recent EMA. When triggered, temporarily:
+    //   * multiplies LR by watchdog_lr_penalty (default 0.25x) each affected step
+    //   * disables meta-net + Taylor nudges + 4-formula routing
+    // until loss recovers back to within watchdog_recover_gap of the pre-spike EMA.
+    size_t watchdog_bad_streak = 0;         ///< consecutive steps of loss >> ema_loss_short
+    size_t watchdog_recovery_left = 0;      ///< remaining steps to keep experimental modules frozen
+    float  watchdog_baseline_loss = 0.0f;   ///< EMA loss the moment the watchdog fired
+    float  watchdog_rise_gap = 1.5f;        ///< current > ema_short + gap counts as "bad"
+    size_t watchdog_trigger_streak = 3;     ///< N consecutive bad steps to trigger
+    size_t watchdog_min_recovery_steps = 25;///< keep modules frozen at least this long
+    float  watchdog_recover_gap = 0.5f;     ///< current <= baseline + this = fully recovered
+    float  watchdog_lr_penalty = 0.25f;     ///< LR *= this while watchdog is active
+    bool   watchdog_active = false;
 
     /// Callback fired whenever parameter expansion (neurogenesis) occurs
     function<void()> on_param_expansion = nullptr;

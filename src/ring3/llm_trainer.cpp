@@ -226,15 +226,24 @@ namespace ring3
         }
 
         ring1::MetaOptimizationOutput meta_out = meta_loss_opt.predict(telemetry);
-        if (config.enable_meta_loss_opt)
+        // Effective enable = config toggle AND watchdog not currently freezing modules.
+        // The watchdog fires on sustained loss rise; while it's active the meta-net,
+        // Taylor nudges, and focal amplification are the most likely destabilizers,
+        // so we bypass them until the loss recovers.
+        const bool adaptive_enabled = config.enable_meta_loss_opt && !watchdog_active;
+        if (adaptive_enabled)
         {
             step_loss_mult *= meta_out.loss_scale_multiplier;
             optimizer.config.curvature_scale = meta_out.curvature_scale;
         }
+        else
+        {
+            optimizer.config.curvature_scale = 1.0f; // neutral while frozen
+        }
 
         // Anticipatory foresight: pre-emptively bias penalty, LR, and curvature from
         // the predicted trajectory BEFORE the loss actually moves (predictive Armijo).
-        if (config.enable_meta_loss_opt && last_forecast.valid)
+        if (adaptive_enabled && last_forecast.valid)
         {
             // Nudge the optimizer penalty ahead of a predicted spike / relax before a drop.
             optimizer.penalty_factor = clamp(optimizer.penalty_factor * .55f + 0.02f * last_forecast.penalty_foresight, 0.00005f, 30.0f);
@@ -248,11 +257,14 @@ namespace ring3
         const auto &cfg = ring0::get_config();
         float focal_gamma = 0.0f;
         float current_l = ema_initialized ? ema_loss_short : (initial_loss > 0.0f ? initial_loss : 5.0f);
-        if (config.enable_meta_loss_opt)
+        // Focal amplification is also frozen while the watchdog is active -- it
+        // magnifies gradients on wrong tokens exactly when we want smaller, safer
+        // steps.
+        if (adaptive_enabled)
         {
             focal_gamma = meta_out.dynamic_focal_gamma;
         }
-        else if (cfg.enable_loss_descent_acceleration && current_l > cfg.plateau_breakout_loss)
+        else if (!watchdog_active && cfg.enable_loss_descent_acceleration && current_l > cfg.plateau_breakout_loss)
         {
             focal_gamma = min(cfg.focal_gamma_max, (current_l - cfg.plateau_breakout_loss) / 1.5f);
         }
@@ -403,7 +415,10 @@ namespace ring3
         // last realized step. SKIP on a spike step: the reward would be a huge
         // negative (this step's "loss went up by 20"), which teaches the meta-network
         // noise rather than signal.
-        if (config.enable_meta_loss_opt && !was_spike)
+        // Skip meta-net training on spike steps AND while the watchdog is active
+        // (feeding a "loss got worse during recovery" reward just teaches the policy
+        // noise it can't act on anyway, since its outputs are frozen out).
+        if (config.enable_meta_loss_opt && !was_spike && !watchdog_active)
         {
             if (last_forecast.valid)
             {
@@ -415,26 +430,48 @@ namespace ring3
             }
         }
 
-        // 3. Backward Pass
-        model.backward(grad_logits);
-
-        // 4. Clip global L2 norm of parameter gradients
-        if (config.max_grad_norm > 0.0f)
+        // 3. Backward Pass + Optimizer Step. SKIP entirely on a spike step: the
+        // gradients from a divergent-logit forward pass are toxic (they're what
+        // pushed the model into the bad region in the first place). Applying them
+        // would compound the damage — the exact reason loss climbs to ~18 and
+        // stays there instead of recovering. On a spike we reset gradients and
+        // leave the model unchanged for one step; the trainer schedule will lower
+        // LR on the next iteration.
+        float pre_clip_grad_norm = 0.0f; // telemetry: pre-clip global L2 grad norm
+        if (was_spike)
         {
-            model.clip_grad_norm(config.max_grad_norm);
+            model.reset_gradients();
         }
-
-        // Concept 5: Armijo-Goldstein condition check on step updates
-        // If loss spikes significantly above recent baseline, automatically dampen step
-        if (config.use_armijo_line_search && ema_initialized && avg_loss > (ema_loss_short + 0.35f))
+        else
         {
-            // High curvature overshoot: scale back learning rate for this step
-            optimizer.config.curvature_scale *= 0.5f;
-        }
+            model.backward(grad_logits);
 
-        // 5. Optimizer Step (Multi-Formula Weight Physics + Nesterov + Fisher metric)
-        optimizer.config.enable_multi_formula = config.enable_multi_formula_opt;
-        model.update_parameters(optimizer);
+            // 4. Clip global L2 norm of parameter gradients.
+            // clip_grad_norm returns the pre-clip global L2 norm — capture it
+            // so we can log it and diagnose vanishing/exploding gradients.
+            if (config.max_grad_norm > 0.0f)
+            {
+                pre_clip_grad_norm = model.clip_grad_norm(config.max_grad_norm);
+            }
+            else
+            {
+                pre_clip_grad_norm = model.clip_grad_norm(1e30f); // computes without clipping
+            }
+            last_grad_norm = pre_clip_grad_norm;
+
+            // Concept 5: Armijo-Goldstein condition check on step updates
+            // If loss spikes significantly above recent baseline, automatically dampen step
+            if (config.use_armijo_line_search && ema_initialized && avg_loss > (ema_loss_short + 0.35f))
+            {
+                // High curvature overshoot: scale back learning rate for this step
+                optimizer.config.curvature_scale *= 0.5f;
+            }
+
+            // 5. Optimizer Step (Multi-Formula Weight Physics + Nesterov + Fisher metric).
+            // Watchdog freeze also bypasses 4-formula routing -> forces plain AdamW.
+            optimizer.config.enable_multi_formula = config.enable_multi_formula_opt && !watchdog_active;
+            model.update_parameters(optimizer);
+        }
 
         return LLMStepMetrics{
             optimizer.timestep, avg_loss, ppl, top1_acc, top20_acc, rank_score,
@@ -561,6 +598,13 @@ namespace ring3
                 watchdog_recovery_cooldown--;
             }
 
+            // Phase 2 fix: while the class-level stability watchdog is active
+            // (sustained loss rise, adaptive modules frozen), hard-throttle LR.
+            if (watchdog_active)
+            {
+                applied_lr *= watchdog_lr_penalty;
+            }
+
             applied_lr = min(config.learning_rate * .08f, max(1e-7f, applied_lr));
             optimizer.set_learning_rate(applied_lr);
 
@@ -617,6 +661,41 @@ namespace ring3
                     float loss_delta = metrics.loss - prev_ema;
                     optimizer.update_attribution_feedback(loss_delta);
                     optimizer.self_adjust_by_loss(metrics.loss, ema_loss_short, ring0::Loss::get_min_loss());
+
+                    // --- Stability Watchdog (Phase 2) ---
+                    // If loss stays well above the recent EMA for several steps, the
+                    // adaptive modules are almost certainly the destabilizer (as the
+                    // ablation critique warned). Freeze them and drop LR until loss
+                    // recovers. Nothing is destroyed -- the modules just pause.
+                    bool bad_step = (metrics.loss > ema_loss_short + watchdog_rise_gap);
+                    if (bad_step) { watchdog_bad_streak++; } else { watchdog_bad_streak = 0; }
+
+                    if (!watchdog_active && watchdog_bad_streak >= watchdog_trigger_streak)
+                    {
+                        watchdog_active = true;
+                        watchdog_baseline_loss = prev_ema;
+                        watchdog_recovery_left = watchdog_min_recovery_steps;
+                        cout << "\n  >> [Stability Watchdog] Loss climbed to " << fixed << setprecision(3)
+                             << metrics.loss << " (baseline EMA " << watchdog_baseline_loss
+                             << "). Freezing meta-net + Taylor nudges + 4-formula routing, LR *= "
+                             << watchdog_lr_penalty << " until recovery.\n";
+                        // Snap penalty back toward its floor so it stops ratcheting up during the spike.
+                        optimizer.penalty_factor = max(0.05f, min(1.0f, optimizer.penalty_factor));
+                    }
+                    if (watchdog_active)
+                    {
+                        if (watchdog_recovery_left > 0) watchdog_recovery_left--;
+                        bool recovered = (metrics.loss <= watchdog_baseline_loss + watchdog_recover_gap)
+                                       && (watchdog_recovery_left == 0);
+                        if (recovered)
+                        {
+                            watchdog_active = false;
+                            watchdog_bad_streak = 0;
+                            cout << "\n  >> [Stability Watchdog] Loss recovered to " << fixed << setprecision(3)
+                                 << metrics.loss << " (<= baseline " << watchdog_baseline_loss
+                                 << " + " << watchdog_recover_gap << "). Re-enabling adaptive modules.\n";
+                        }
+                    }
 
                     // Record empirical derivative of penalization impact on loss d(Loss)/d(Penalty) and adjust penalty
                     optimizer.update_penalization_derivative(metrics.loss, loss_delta);
