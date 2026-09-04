@@ -37,6 +37,14 @@ struct LLMTrainingConfig {
     float loss_shrink_floor       = 0.2f;  ///< Minimum LR multiplier
     size_t loss_shrink_warmup     = 30;    ///< Skip shrink until this many steps have run
 
+    // --- Ablation baseline switch (Phase 0 of the stability plan) ---
+    // When true, the trainer disables every experimental adaptive module so that
+    // training runs on a clean, known-good stack: plain AdamW, fixed context,
+    // no meta-network, no Taylor foresight nudges, no progressive depth/dataset
+    // oscillation. Nothing is deleted -- flags are just overridden in the ctor
+    // -- so ablation against the full engine is a single-flag flip.
+    bool safe_mode = false;
+
     // --- Meta-Neural Loss & 4-Formula Optimization ---
     bool enable_meta_loss_opt = true;     ///< Online Meta-Neural Network loss & step optimizer
     bool enable_multi_formula_opt = true; ///< Dynamic 1-4 Formula Weight Physics

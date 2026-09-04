@@ -317,6 +317,7 @@ int main(int argc, char *argv[])
     size_t cli_max_vocab_size = 10000; // Scalable up to 10k+ tokens
     float cli_lr = 0.35f;
     bool cli_debug = false;
+    bool cli_safe_mode = false; // Phase 0: single-flag ablation baseline
 
     for (int i = 1; i < argc; ++i)
     {
@@ -362,6 +363,13 @@ int main(int argc, char *argv[])
         else if (arg == "--debug" || arg == "-v" || arg == "--verbose")
         {
             cli_debug = true;
+        }
+        else if (arg == "--safe-mode" || arg == "--safe")
+        {
+            // Phase 0 ablation baseline: disables meta-network, Taylor foresight
+            // nudges, 4-formula routing, progressive depth/context/dataset growth,
+            // Armijo/curvature scaling, and the info-entropy data filter.
+            cli_safe_mode = true;
         }
         else if (arg == "--thought-loops" && i + 1 < argc)
         {
@@ -540,6 +548,7 @@ int main(int argc, char *argv[])
     train_cfg.initial_seq_len = cli_init_seq_len;
     train_cfg.max_seq_len = cli_max_seq_len;
     train_cfg.step_based_context_growth = true;
+    train_cfg.safe_mode = cli_safe_mode; // --safe-mode: override adaptive modules off
     // Start the curriculum on a larger slice (30% vs 5%): the tiny high-entropy
     // filtered slice made early per-step loss read artificially high while the
     // model was weakest. A wider slice better matches the corpus unigram bias.

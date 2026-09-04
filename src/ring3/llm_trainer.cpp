@@ -21,11 +21,33 @@ namespace ring3
           ema_initialized(false),
           observed_steps(0)
     {
+        // --- Phase 0: safe-mode baseline ---
+        // Single-flag ablation that turns off every experimental adaptive module,
+        // leaving a clean AdamW + warmup+cosine + fixed context stack. Nothing
+        // is deleted -- if the safe run trains steadily and the full run does not,
+        // one of the disabled modules is the destabilizer.
+        if (config.safe_mode)
+        {
+            config.enable_meta_loss_opt = false;      // no meta-network + no Taylor nudges (gated on this)
+            config.enable_multi_formula_opt = false;  // force plain AdamW (no 4-formula routing)
+            config.progressive_depth_growth = false;  // fixed depth (stop 4<->10 oscillation)
+            config.progressive_context_growth = false;// fixed context length
+            config.step_based_context_growth = false;
+            config.progressive_dataset_growth = false;// full dataset from step 0
+            config.use_armijo_line_search = false;    // simple LR schedule only
+            config.use_curvature_scaling = false;
+            config.use_data_filter = false;           // plain random batches
+            cout << "  >> [Safe Mode] All experimental adaptive modules disabled. "
+                 << "Running baseline: AdamW + warmup+cosine + fixed context + plain batches.\n";
+        }
+
         ring1::AdamWConfig adam_cfg;
         adam_cfg.lr = cfg.learning_rate;
         adam_cfg.weight_decay = cfg.weight_decay;
         adam_cfg.beta1 = 0.9f;
         adam_cfg.beta2 = 0.95f;
+        // Safe mode also disables the 4-formula routing at the optimizer level.
+        adam_cfg.enable_multi_formula = config.enable_multi_formula_opt;
         optimizer = ring1::AdamW(adam_cfg);
         if (config.progressive_depth_growth)
         {
@@ -667,7 +689,12 @@ namespace ring3
                             target_layers = min(model.blocks.size(), size_t(6));
                         }
 
-                        if (target_layers != model.num_active_layers)
+                        // Phase 1 fix: depth ramping is MONOTONIC. The ladder above
+                        // can compute a lower target than the current depth when
+                        // fast-track flips off and step drops through a boundary,
+                        // which caused active layers to oscillate 4->10->4->10.
+                        // Only apply the change when it's a strict INCREASE.
+                        if (target_layers > model.num_active_layers)
                         {
                             size_t old_l = model.num_active_layers;
                             model.set_active_layers(target_layers);
