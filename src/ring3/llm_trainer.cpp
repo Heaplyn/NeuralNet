@@ -653,6 +653,8 @@ namespace ring3
 
         size_t context_jump_cooldown = 0;
         size_t dataset_jump_cooldown = 0;
+        size_t depth_jump_cooldown = 0;
+        size_t bad_batch_cooldown = 0;
         size_t watchdog_recovery_cooldown = 0;
 
         for (size_t step = 1; step <= config.steps; ++step)
@@ -678,6 +680,20 @@ namespace ring3
             {
                 applied_lr *= 0.60f;
                 dataset_jump_cooldown--;
+            }
+
+            // Depth jump cooldown temporarily reduces LR by 40% when new layers are unlocked
+            if (depth_jump_cooldown > 0)
+            {
+                applied_lr *= 0.60f;
+                depth_jump_cooldown--;
+            }
+
+            // Bad batch cooldown temporarily halves LR after rollback
+            if (bad_batch_cooldown > 0)
+            {
+                applied_lr *= 0.50f;
+                bad_batch_cooldown--;
             }
 
             // Phase 2 fix: watchdog recovery cooldown temporarily halves LR
@@ -728,8 +744,9 @@ namespace ring3
 
             if (metrics.bad_batch_skipped)
             {
+                bad_batch_cooldown = 10;
                 cout << "\n  ⚠️ [Bad Batch Skip @ step " << step << "] Forward loss was extreme ("
-                     << fixed << setprecision(2) << metrics.loss << " > 15.0). Skipped optimizer update, zeroed gradients, and halved LR.\n";
+                     << fixed << setprecision(2) << metrics.loss << " > 12.0). Skipped optimizer update, zeroed gradients, and damped LR for 10 recovery steps.\n";
             }
 
             // 2.5 Periodic Calculus of Constructions (CoC) Proof & Type Consistency Verification
@@ -963,6 +980,7 @@ namespace ring3
                         {
                             size_t old_l = model.num_active_layers;
                             model.set_active_layers(target_layers);
+                            depth_jump_cooldown = 15;
                             cout << "\n  >> [Curriculum Depth Ramping @ step " << step << "] Unlocking transformer depth: "
                                  << old_l << " -> " << target_layers << " layers!\n\n";
                         }
