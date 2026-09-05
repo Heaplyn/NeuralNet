@@ -1,9 +1,12 @@
-#include "ring3/data_loader.hpp"
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <vector>
+#include <string>
+
+#include "ring3/data_loader.hpp"
 
 namespace ring3 {
 

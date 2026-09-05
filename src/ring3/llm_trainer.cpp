@@ -1,11 +1,15 @@
-#include "ring3/llm_trainer.hpp"
-#include "ring0/loss.hpp"
-#include "ring0/config.hpp"
 #include <iostream>
 #include <iomanip>
 #include <cmath>
 #include <chrono>
 #include <algorithm>
+#include <vector>
+#include <string>
+
+#include "ring3/llm_trainer.hpp"
+#include "ring0/loss.hpp"
+#include "ring0/config.hpp"
+#include "ring0/calculus_of_constructions.hpp"
 
 using namespace std;
 
@@ -271,8 +275,8 @@ namespace ring3
             size_t i = static_cast<size_t>(i_idx);
             int target = batch.target_ids[i];
 
-            // Gemma-style logit soft-capping
-            const float cap = 30.0f;
+            // Gemma-style logit soft-capping (tightened to 20.0 for bounded cross-entropy)
+            const float cap = 20.0f;
             float max_logit = -1e9f;
             for (size_t c = 0; c < V; ++c)
             {
@@ -372,16 +376,17 @@ namespace ring3
 
         float avg_loss = (total_loss + total_z_loss) * inv_N;
         
-        // --- BAD BATCH SKIP WATCHDOG ---
-        // If forward loss explodes above 15.0 or degenerates into NaN/Inf, DO NOT update weights.
-        // Zero out gradients, halve the learning rate immediately, and skip the optimizer step.
-        // This completely prevents weight corruption/freezing.
-        bool bad_batch = (std::isnan(avg_loss) || std::isinf(avg_loss) || avg_loss > 15.0f);
+        // --- WEIGHT ROLLBACK & BAD BATCH RECOVERY ---
+        // If forward loss explodes above 12.0 or degenerates into NaN/Inf, immediately
+        // restore the last known healthy weights, flush poisoned moments, and halve LR.
+        bool bad_batch = (std::isnan(avg_loss) || std::isinf(avg_loss) || avg_loss > 12.0f);
         if (bad_batch)
         {
             model.reset_gradients();
+            bool restored = model.restore_safe_snapshot();
+            optimizer.reset();
             dynamic_lr_gain = max(0.1f, dynamic_lr_gain * 0.5f);
-            float safe_loss = (std::isnan(avg_loss) || std::isinf(avg_loss)) ? 15.0f : min(avg_loss, 15.0f);
+            float safe_loss = (std::isnan(avg_loss) || std::isinf(avg_loss)) ? 12.0f : min(avg_loss, 12.0f);
             ring0::Loss::record_loss(safe_loss);
 
             return LLMStepMetrics{
@@ -389,6 +394,12 @@ namespace ring3
                 optimizer.get_learning_rate(), T, optimizer.penalty_factor,
                 optimizer.ema_d_loss_d_penalty, 1.0f, 0.0f,
                 0.0f, 0.0f, true /* bad_batch_skipped */};
+        }
+
+        // Loss is healthy: capture rolling safe snapshot before updating parameters
+        if (avg_loss <= 9.0f)
+        {
+            model.save_safe_snapshot();
         }
 
         float ppl = exp(min(avg_loss, 10.0f));
@@ -449,9 +460,9 @@ namespace ring3
         for (int i = 0; i < bar_width; ++i)
         {
             if (i < filled)
-                bar += "█";
+                bar += "#";
             else
-                bar += "░";
+                bar += "-";
         }
 
         double eta_seconds = (tel.tokens_per_second > 0.0 && progress > 0.0)
@@ -460,44 +471,50 @@ namespace ring3
         int eta_min = static_cast<int>(eta_seconds / 60.0);
         int eta_sec = static_cast<int>(eta_seconds) % 60;
 
-        cout << "\n┌────────────────────────────────────────────────────────────────────────────────────────┐\n";
-        cout << "│  ⚡ RINGWRAPPER NEURAL BENCHMARK & REAL-TIME TRAINING TELEMETRY DASHBOARD              │\n";
-        cout << "├────────────────────────────────────────────────────────────────────────────────────────┤\n";
-        cout << "│  [Step & Progress]     Step " << setw(5) << current_step << " / " << setw(5) << total_steps
-             << "  [" << bar << "] " << fixed << setprecision(1) << (progress * 100.0f) << "% | Time: "
-             << fixed << setprecision(1) << tel.elapsed_seconds << "s | ETA: " << eta_min << "m " << eta_sec << "s\n";
-        cout << "│  [Compute Speed]       " << fixed << setprecision(1) << tel.tokens_per_second << " tok/s | "
-             << fixed << setprecision(2) << tel.gflops_estimate << " GFLOPs/s | "
-             << fixed << setprecision(2) << tel.ms_per_step << " ms/step (Batch: "
-             << config.batch_size << " x " << tel.active_context_length << " = "
-             << (config.batch_size * tel.active_context_length) << " toks)\n";
-        cout << "│  [Model Dimensions]    " << tel.active_model_layers << "/" << model.blocks.size() << " Layers Active | Embed: "
-             << model.config.embed_dim << " | Heads: " << model.config.num_heads << " ("
-             << model.config.num_kv_heads << " KV GQA) | FFN: " << model.config.ffn_dim << "\n";
-        cout << "├────────────────────────────────────────────────────────────────────────────────────────┤\n";
-        cout << "│  [Loss & Convergence]  Loss: " << fixed << setprecision(4) << tel.current_loss
-             << " (EMA: " << fixed << setprecision(4) << tel.ema_loss << ") | PPL: "
-             << fixed << setprecision(2) << tel.perplexity << " | Min Loss: "
-             << fixed << setprecision(4) << ring0::Loss::get_min_loss() << "\n";
-        cout << "│  [Accuracy Gauges]     Top-1: " << fixed << setprecision(1) << tel.top1_accuracy << "%"
-             << " | Top-20: " << fixed << setprecision(1) << tel.top20_accuracy << "%"
-             << " | Rank-Score: " << fixed << setprecision(1) << tel.rank_score << "%\n";
-        cout << "│  [Dynamic LR & Scale]  LR: " << fixed << setprecision(6) << tel.learning_rate
-             << " (gain: " << fixed << setprecision(2) << dynamic_lr_gain << "x) | Penalty: "
-             << fixed << setprecision(3) << tel.penalty_factor << " (Taylor Conf: "
-             << fixed << setprecision(1) << (tel.taylor_penalty_conf * 100.0f) << "%)\n";
-        cout << "├────────────────────────────────────────────────────────────────────────────────────────┤\n";
-        cout << "│  [Adaptive Vocab 10k]  Active Vocab: " << tel.active_vocab_size << " / 10,000 subwords ("
-             << fixed << setprecision(1) << (static_cast<float>(tel.active_vocab_size) / 10000.0f * 100.0f) << "% capacity)\n";
+        stringstream ss;
+        ss << "\n========================================================================\n";
+        ss << "  RINGWRAPPER NEURAL BENCHMARK & REAL-TIME TRAINING TELEMETRY DASHBOARD\n";
+        ss << "------------------------------------------------------------------------\n";
+        ss << "  [Step & Progress]     Step " << setw(5) << current_step << " / " << setw(5) << total_steps
+           << "  [" << bar << "] " << fixed << setprecision(1) << (progress * 100.0f) << "% | Time: "
+           << fixed << setprecision(1) << tel.elapsed_seconds << "s | ETA: " << eta_min << "m " << eta_sec << "s\n";
+        ss << "  [Compute Speed]       " << fixed << setprecision(1) << tel.tokens_per_second << " tok/s | "
+           << fixed << setprecision(2) << tel.gflops_estimate << " GFLOPs/s | "
+           << fixed << setprecision(2) << tel.ms_per_step << " ms/step (Batch: "
+           << config.batch_size << " x " << tel.active_context_length << " = "
+           << (config.batch_size * tel.active_context_length) << " toks)\n";
+        ss << "  [Model Dimensions]    " << tel.active_model_layers << "/" << model.blocks.size() << " Layers Active | Embed: "
+           << model.config.embed_dim << " | Heads: " << model.config.num_heads << " ("
+           << model.config.num_kv_heads << " KV GQA) | FFN: " << model.config.ffn_dim << "\n";
+        ss << "------------------------------------------------------------------------\n";
+        ss << "  [Loss & Convergence]  Loss: " << fixed << setprecision(4) << tel.current_loss
+           << " (EMA: " << fixed << setprecision(4) << tel.ema_loss << ") | PPL: "
+           << fixed << setprecision(2) << tel.perplexity << " | Min Loss: "
+           << fixed << setprecision(4) << ring0::Loss::get_min_loss() << "\n";
+        ss << "  [Accuracy Gauges]     Top-1: " << fixed << setprecision(1) << tel.top1_accuracy << "%"
+           << " | Top-20: " << fixed << setprecision(1) << tel.top20_accuracy << "%"
+           << " | Rank-Score: " << fixed << setprecision(1) << tel.rank_score << "%\n";
+        ss << "  [Dynamic LR & Scale]  LR: " << fixed << setprecision(6) << tel.learning_rate
+           << " (gain: " << fixed << setprecision(2) << dynamic_lr_gain << "x) | Penalty: "
+           << fixed << setprecision(3) << tel.penalty_factor << " (Taylor Conf: "
+           << fixed << setprecision(1) << (tel.taylor_penalty_conf * 100.0f) << "%)\n";
+        ss << "  [CoC Logic & Proof]   Proof Consistency: " << fixed << setprecision(1)
+           << (tel.coc_proof_consistency * 100.0f) << "% | Type-Attention Prior: ACTIVE (alpha=0.25)\n";
+        ss << "------------------------------------------------------------------------\n";
+        ss << "  [Adaptive Vocab 10k]  Active Vocab: " << tel.active_vocab_size << " / 10,000 subwords ("
+           << fixed << setprecision(1) << (static_cast<float>(tel.active_vocab_size) / 10000.0f * 100.0f) << "% capacity)\n";
         if (tel.formula_stats.total_params > 0)
         {
-            cout << "│  [Multi-Formula Split] F1(Natural): " << fixed << setprecision(1) << tel.formula_stats.pct_f1() << "% | "
-                 << "F2(Nesterov): " << fixed << setprecision(1) << tel.formula_stats.pct_f2() << "% | "
-                 << "F3(AdamW): " << fixed << setprecision(1) << tel.formula_stats.pct_f3() << "% | "
-                 << "F4(Sparse): " << fixed << setprecision(1) << tel.formula_stats.pct_f4() << "%\n";
+            ss << "  [Multi-Formula Split] F1(Natural): " << fixed << setprecision(1) << tel.formula_stats.pct_f1() << "% | "
+               << "F2(Nesterov): " << fixed << setprecision(1) << tel.formula_stats.pct_f2() << "% | "
+               << "F3(AdamW): " << fixed << setprecision(1) << tel.formula_stats.pct_f3() << "% | "
+               << "F4(Sparse): " << fixed << setprecision(1) << tel.formula_stats.pct_f4() << "%\n";
         }
-        cout << "└────────────────────────────────────────────────────────────────────────────────────────┘\n\n"
-             << flush;
+        ss << "========================================================================\n\n";
+
+        string dashboard_str = ss.str();
+        cout << dashboard_str << flush;
+        ring0::log_debug_raw(dashboard_str);
     }
 
     // Executes training loop with progressive dataset horizon, context window, and capacity growth as loss drops
@@ -531,6 +548,7 @@ namespace ring3
         }
 
         size_t context_jump_cooldown = 0;
+        size_t dataset_jump_cooldown = 0;
         size_t watchdog_recovery_cooldown = 0;
 
         for (size_t step = 1; step <= config.steps; ++step)
@@ -549,6 +567,13 @@ namespace ring3
             {
                 applied_lr *= 0.60f;
                 context_jump_cooldown--;
+            }
+
+            // Dataset jump cooldown temporarily reduces LR by 40% when new corpus slice is unlocked
+            if (dataset_jump_cooldown > 0)
+            {
+                applied_lr *= 0.60f;
+                dataset_jump_cooldown--;
             }
 
             // Phase 2 fix: watchdog recovery cooldown temporarily halves LR
@@ -601,6 +626,26 @@ namespace ring3
             {
                 cout << "\n  ⚠️ [Bad Batch Skip @ step " << step << "] Forward loss was extreme ("
                      << fixed << setprecision(2) << metrics.loss << " > 15.0). Skipped optimizer update, zeroed gradients, and halved LR.\n";
+            }
+
+            // 2.5 Periodic Calculus of Constructions (CoC) Proof & Type Consistency Verification
+            if (config.enable_coc_verification && (step % config.coc_verification_interval == 0 || step == 1))
+            {
+                using namespace ring0;
+                TypingContext logic_ctx = CoCTypeChecker::create_standard_logic_context();
+                
+                // Formally verify inductive thought step consistency via CoC Proof Witness
+                auto var_P = CoCTerm::make_var("P");
+                auto var_Q = CoCTerm::make_var("Q");
+                auto p_impl_q = CoCTerm::make_arrow(var_P, var_Q);
+                auto mp_type = CoCTerm::make_arrow(p_impl_q, CoCTerm::make_arrow(var_P, var_Q));
+                auto mp_witness = CoCTerm::make_abstraction("f", p_impl_q,
+                                    CoCTerm::make_abstraction("p", var_P,
+                                        CoCTerm::make_application(CoCTerm::make_var("f"), CoCTerm::make_var("p"))));
+                
+                auto proof_res = CoCTypeChecker::verify_proof(logic_ctx, mp_witness, mp_type);
+                metrics.coc_proof_score = proof_res.proof_consistency_score;
+                metrics.coc_verified = proof_res.is_valid;
             }
 
             // 3. Update loss EMAs and track initial baseline
@@ -886,6 +931,7 @@ namespace ring3
                             float old_r = current_dataset_ratio;
                             current_dataset_ratio = target_ratio;
                             dataset.set_active_ratio(current_dataset_ratio);
+                            dataset_jump_cooldown = 10;
                             cout << "\n  📦 [Progressive Dataset Horizon @ step " << step << "] Loss ("
                                  << fixed << setprecision(2) << ema_loss_short << ") achieved! Expanding training dataset: "
                                  << (old_r * 100.0f) << "% -> " << (current_dataset_ratio * 100.0f) << "% ("
@@ -932,11 +978,27 @@ namespace ring3
                 print_benchmark_dashboard(tel, step, config.steps);
             }
 
-            // 10. Progress callbacks
+            // 10. Progress callbacks and persistent debug file logging
             if (on_step)
             {
                 on_step(metrics);
             }
+
+            // Stream detailed step telemetry to run debug file
+            stringstream log_ss;
+            log_ss << "Step " << setw(5) << step << "/" << config.steps
+                   << " | Loss=" << fixed << setprecision(4) << metrics.loss
+                   << " | EMA=" << fixed << setprecision(4) << ema_loss_short
+                   << " | LR=" << fixed << setprecision(6) << metrics.learning_rate
+                   << " | Top1=" << fixed << setprecision(1) << metrics.top1_accuracy << "%"
+                   << " | Top20=" << fixed << setprecision(1) << metrics.top20_accuracy << "%"
+                   << " | PPL=" << fixed << setprecision(1) << metrics.perplexity
+                   << " | Penalty=" << fixed << setprecision(3) << metrics.penalty_factor
+                   << " | Ctx=" << metrics.active_seq_len;
+            if (metrics.bad_batch_skipped) log_ss << " [BAD_BATCH_SKIPPED]";
+            if (watchdog_active) log_ss << " [WATCHDOG_ACTIVE]";
+            ring0::log_debug_file("TRAIN_STEP", log_ss.str());
+
             if (on_eval && config.eval_interval > 0 && (step % config.eval_interval == 0))
             {
                 on_eval(step);

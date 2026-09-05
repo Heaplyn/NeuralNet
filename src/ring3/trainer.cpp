@@ -1,10 +1,11 @@
-#include "ring3/trainer.hpp"
-#include "ring0/loss.hpp"
 #include <iostream>
 #include <vector>
 #include <numeric>
 #include <random>
 #include <algorithm>
+
+#include "ring3/trainer.hpp"
+#include "ring0/loss.hpp"
 
 using namespace std;
 

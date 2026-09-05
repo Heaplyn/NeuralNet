@@ -1,6 +1,6 @@
 # 🏛️ TransformerLM Causal Decoder Architecture
 
-The `ring2::TransformerLM` is a modern 10-layer autoregressive causal language model decoder implementing **Grouped-Query Attention (GQA)**, **SwiGLU Gated Feed-Forward Networks**, **RMSNorm pre-layer normalization**, and **ALiBi positional encoding**.
+The `ring2::TransformerLM` is a modern 10-layer autoregressive causal language model decoder implementing **Grouped-Query Attention (GQA)**, **SwiGLU Gated Feed-Forward Networks**, **Constructive Dependent-Type Attention**, **RMSNorm pre-layer normalization**, and **Gemma-style Logit Soft-Capping via $\tanh$**.
 
 ---
 
@@ -14,13 +14,26 @@ Imagine the model is given the text prompt: `"The cat sat on the "` and wants to
 2. **Step 2: Embedding Table Lookup (`Embedding`)**
    - Each ID is converted into a rich vector of 128 floating-point numbers ($\mathbb{R}^{128}$).
 3. **Step 3: Transformer Blocks ($1 \dots 10$)**
-   - Each block performs two fundamental operations:
-     - **Self-Attention**: Allows words to look back and communicate with each other (*"sat"* connects with *"cat"*).
+   - Each block performs three fundamental operations:
+     - **Self-Attention (GQA)**: Words communicate with each other (*"sat"* connects with *"cat"*).
+     - **Constructive Type Attention**: Uses Calculus of Constructions type signatures to ensure semantic agreement.
      - **SwiGLU MLP**: Acts as the memory/knowledge retrieval unit for each token.
-4. **Step 4: Output Projection Head**
-   - The final 128-dimensional vector is multiplied against the vocabulary matrix to produce **logits** (scores for all 512 possible next tokens).
-5. **Step 5: Softmax & Sampling**
-   - Logits are converted to probabilities ($0\% - 100\%$), and the top word (`"mat"`, $92\%$) is chosen!
+4. **Step 4: Output Projection Head & Logit Soft-Capping**
+   - Final representation is projected to vocabulary logits $\mathbf{z}$, then soft-capped via $\tanh$:
+     $$z_{\text{capped}} = 20.0 \cdot \tanh\left(\frac{z}{20.0}\right)$$
+5. **Step 5: Numerically Stable Softmax & Sampling**
+   - Logits become probabilities ($0\% - 100\%$), and the next token is sampled!
+
+---
+
+## 📚 Intuitive Analogy: "The 8 Students and 4 Reference Textbooks (GQA)"
+
+In standard **Multi-Head Attention (MHA)**, every Query head has its own Key and Value head (8 Q, 8 K, 8 V). This consumes massive KV-cache memory during long conversations.
+
+In **Grouped-Query Attention (GQA)**:
+- Imagine **8 Students** (8 Query Heads) working in a library.
+- Instead of printing 8 separate copies of the heavy reference textbooks (Keys & Values), they share **4 Books** in pairs (2 Students per 1 Book).
+- **Result**: Cuts KV-cache memory bandwidth in half while preserving 99%+ of full multi-head attention expressive power!
 
 ---
 
@@ -34,7 +47,10 @@ graph TD
     subgraph Block["Transformer Block (Repeated 10x)"]
         Norm0 --> AttnNorm["RMSNorm"]
         AttnNorm --> GQA["Grouped-Query Attention (8 Q Heads, 4 KV Heads) + ALiBi"]
-        GQA --> Res1["Residual Add (+ Input)"]
+        AttnNorm --> TypeAttn["Dependent Type Attention (CoC Prior Guidance)"]
+        GQA --> AttnFuse["Attention Fusion: A_ij = Softmax(Q K^T / sqrt(d) + alpha * TypeMatch)"]
+        TypeAttn --> AttnFuse
+        AttnFuse --> Res1["Residual Add (+ Input)"]
         
         Res1 --> MLPNorm["RMSNorm"]
         MLPNorm --> SwiGLU["SwiGLU Gated FFN (Gate + Up + Down Projections)"]
@@ -43,7 +59,8 @@ graph TD
     
     Block --> FinalNorm["Final RMSNorm Layer"]
     FinalNorm --> Head["Output Un-embedding Head (128 -> Vocab 512)"]
-    Head --> Logits["Output Logits (B x T x V)"]
+    Head --> Cap["Gemma Logit Soft-Capping: 20.0 * tanh(z / 20.0)"]
+    Cap --> Softmax["Numerically Stable Softmax -> Next Token"]
 ```
 
 ---
@@ -70,7 +87,27 @@ $$\text{SwiGLU}(\mathbf{x}) = (\mathbf{g} \odot \mathbf{u}) \mathbf{W}_{\text{do
 
 ## 💻 Deep Code Breakdown
 
-### 1. The Transformer Block Forward Pass
+### 1. Logit Soft-Capping via $\tanh$
+Located in `src/ring2/transformer_lm.cpp`:
+
+```cpp
+Matrix TransformerLM::forward(const Matrix& input_ids) {
+    // ... Forward pass through embedding and transformer blocks ...
+    Matrix logits = unpermute_head.forward(normed_out);
+
+    // Gemma-style logit soft-capping via tanh eliminates unbounded probability explosion
+    const float cap = 20.0f;
+    for (float& val : logits.data) {
+        val = cap * std::tanh(val / cap);
+    }
+
+    return logits;
+}
+```
+
+---
+
+### 2. The Transformer Block Forward Pass
 Located in `src/ring1/transformer_block.cpp`:
 
 ```cpp
@@ -119,6 +156,8 @@ Matrix TransformerBlock::forward(const Matrix& x, size_t B, size_t T) {
 ---
 
 ## 🔗 Related Notes
+- [[01 - Ring 0 (Core Math & Hardware)/Activation Functions|Activation Functions (GELU, SiLU, tanh)]]
+- [[01 - Ring 0 (Core Math & Hardware)/Calculus of Constructions & Dependent-Typed Neural Reasoning|Calculus of Constructions & Dependent Types]]
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi|Attention Mechanics & ALiBi]]
 - [[03 - Ring 2 (Models & Transformers)/Autoregressive KV-Cache Generation|Autoregressive KV-Cache Generation]]
 - [[03 - Ring 2 (Models & Transformers)/Semantic VocabManager & Lexicon Clusters|Semantic VocabManager]]

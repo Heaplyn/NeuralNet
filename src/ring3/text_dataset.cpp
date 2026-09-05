@@ -1,9 +1,15 @@
-#include "ring3/text_dataset.hpp"
 #include <random>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
 #include <unordered_set>
+#include <vector>
+#include <string>
+#include <iostream>
+#include <cmath>
+
+#include "ring0/config.hpp"
+#include "ring3/text_dataset.hpp"
 
 using namespace std;
 
@@ -207,9 +213,6 @@ TextBatch TextDataset::get_information_filtered_batch(size_t batch_size, size_t 
 
     return batch;
 }
-
-#include "ring0/config.hpp"
-#include <cmath>
 
 // Computes intrinsic informational/semantic relevancy score for a token in [0.0, 1.0]
 float TextDataset::compute_token_relevance(size_t token_pos) const {

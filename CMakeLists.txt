@@ -8,7 +8,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Include directories
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-find_package(OpenMP)
+if(NOT MSVC)
+    find_package(OpenMP)
+endif()
 
 # Source files grouped by Ring Architecture
 set(RING0_SOURCES
@@ -17,6 +19,7 @@ set(RING0_SOURCES
     src/ring0/loss.cpp
     src/ring0/taylor_predictor.cpp
     src/ring0/cuda_backend.cpp
+    src/ring0/calculus_of_constructions.cpp
 )
 
 set(RING1_SOURCES
@@ -29,6 +32,7 @@ set(RING1_SOURCES
     src/ring1/recursive_layer.cpp
     src/ring1/meta_loss_optimizer.cpp
     src/ring1/multi_formula_optimizer.cpp
+    src/ring1/dependent_type_attention.cpp
 )
 
 set(RING2_SOURCES

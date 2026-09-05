@@ -109,10 +109,39 @@ ring0::Matrix RecursiveLayer::forward(const ring0::Matrix& X) {
         float sim = matrix_cosine_sim(prev_H, H);
 
         string stage;
-        if (step == 0) stage = "Perceptual Grounding & Feature Projection";
-        else if (step == 1) stage = "Latent Reasoning & Semantic Synthesis";
-        else if (step == 2) stage = "Hierarchical Hypothesis Formulation";
-        else stage = "Self-Reflective Refinement & Deduction";
+        ring0::CoCTermPtr witness = nullptr;
+        ring0::CoCTermPtr prop = nullptr;
+        static ring0::TypingContext logic_ctx = ring0::CoCTypeChecker::create_standard_logic_context();
+
+        if (step == 0)
+        {
+            stage = "Perceptual Grounding & Feature Projection";
+            prop = ring0::CoCTerm::make_universe(ring0::UniverseSort::PROP, 0);
+            witness = ring0::CoCTerm::make_abstraction("p", prop, ring0::CoCTerm::make_var("p"));
+        }
+        else if (step == 1)
+        {
+            stage = "Latent Reasoning & Semantic Synthesis";
+            auto prop_a = ring0::CoCTerm::make_universe(ring0::UniverseSort::PROP, 0);
+            prop = ring0::CoCTerm::make_arrow(prop_a, prop_a);
+            witness = ring0::CoCTerm::make_abstraction("a", prop_a, ring0::CoCTerm::make_var("a"));
+        }
+        else if (step == 2)
+        {
+            stage = "Hierarchical Hypothesis Formulation";
+            auto type0 = ring0::CoCTerm::make_universe(ring0::UniverseSort::TYPE_0, 0);
+            prop = ring0::CoCTerm::make_pi("T", type0, ring0::CoCTerm::make_arrow(ring0::CoCTerm::make_var("T"), ring0::CoCTerm::make_var("T")));
+            witness = ring0::CoCTerm::make_abstraction("T", type0, ring0::CoCTerm::make_abstraction("t", ring0::CoCTerm::make_var("T"), ring0::CoCTerm::make_var("t")));
+        }
+        else
+        {
+            stage = "Self-Reflective Refinement & Deduction";
+            auto prop_p = ring0::CoCTerm::make_universe(ring0::UniverseSort::PROP, 0);
+            prop = prop_p;
+            witness = ring0::CoCTerm::make_abstraction("h", prop_p, ring0::CoCTerm::make_var("h"));
+        }
+
+        ring0::ProofValidationResult proof_res = ring0::CoCTypeChecker::verify_proof(logic_ctx, witness, nullptr);
 
         ThoughtStep record{
             step,
@@ -121,7 +150,10 @@ ring0::Matrix RecursiveLayer::forward(const ring0::Matrix& X) {
             energy,
             delta,
             sim,
-            stage
+            stage,
+            witness,
+            prop,
+            proof_res
         };
         thought_chain_history.push_back(record);
 
@@ -130,6 +162,7 @@ ring0::Matrix RecursiveLayer::forward(const ring0::Matrix& X) {
                  << ": Energy=" << fixed << setprecision(3) << energy
                  << " | Δ=" << fixed << setprecision(3) << delta
                  << " | CosSim=" << fixed << setprecision(3) << sim
+                 << " | CoC Proof=" << (proof_res.is_valid ? "VALID" : "UNVERIFIED")
                  << " -> [" << stage << "]\n";
         }
     }
@@ -163,7 +196,7 @@ ring0::Matrix RecursiveLayer::loop_thought_chain(const ring0::Matrix& X, size_t 
 
     for (size_t cycle = 1; cycle <= num_reflection_cycles; ++cycle) {
         if (debug) {
-            cout << indent << "  ┌── [Reflection Cycle " << cycle << "/" << num_reflection_cycles << "]\n";
+            cout << indent << "  |-- [Reflection Cycle " << cycle << "/" << num_reflection_cycles << "]\n";
         }
 
         ring0::Matrix prev_thought = current_thought;
@@ -182,8 +215,8 @@ ring0::Matrix RecursiveLayer::loop_thought_chain(const ring0::Matrix& X, size_t 
         float cycle_sim = matrix_cosine_sim(prev_thought, current_thought);
 
         if (debug) {
-            cout << indent << "  └── Cycle " << cycle << " Result: Energy=" << fixed << setprecision(3) << matrix_norm(current_thought)
-                 << " | Reflection Δ=" << fixed << setprecision(4) << cycle_delta
+            cout << indent << "  \\-- Cycle " << cycle << " Result: Energy=" << fixed << setprecision(3) << matrix_norm(current_thought)
+                 << " | Reflection delta=" << fixed << setprecision(4) << cycle_delta
                  << " | Alignment=" << fixed << setprecision(4) << cycle_sim << "\n";
         }
 

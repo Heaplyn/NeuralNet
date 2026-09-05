@@ -14,6 +14,7 @@
 
 #include "ring0/tensor.hpp"
 #include "ring0/config.hpp"
+#include "ring0/calculus_of_constructions.hpp"
 #include "ring1/layer.hpp"
 #include <vector>
 #include <memory>
@@ -25,7 +26,7 @@ namespace ring1 {
 
 /**
  * @struct ThoughtStep
- * @brief Diagnostic telemetry recorded per step of a reasoning thought chain.
+ * @brief Diagnostic telemetry and CoC constructive proof verification recorded per reasoning step.
  */
 struct ThoughtStep {
     size_t step_index;             ///< Thought iteration index (0..K-1)
@@ -35,6 +36,9 @@ struct ThoughtStep {
     float delta_magnitude;         ///< ||H_{t+1} - H_t|| residual shift
     float cosine_similarity;       ///< Directional alignment with previous thought state
     string stage_description;      ///< Semantic stage label (e.g., "Perceptual Encoding", "Synthesis")
+    ring0::CoCTermPtr proof_witness = nullptr;       ///< Constructive proof term witness in Calculus of Constructions
+    ring0::CoCTermPtr target_proposition = nullptr;  ///< Proposition/type that this step constructs or proves
+    ring0::ProofValidationResult proof_result;       ///< CoC kernel verification telemetry
 };
 
 /**

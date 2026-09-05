@@ -1,0 +1,64 @@
+========================================================================
+ RINGWRAPPER NEURALNET SYSTEM EXECUTION & TRAINING DEBUG LOG
+ Session Timestamp: 20260905_133954
+ Log File Path:     logs/debug_run_20260905_133954.txt
+========================================================================
+
+
+========================================================================
+  RINGWRAPPER NEURAL BENCHMARK & REAL-TIME TRAINING TELEMETRY DASHBOARD
+------------------------------------------------------------------------
+  [Step & Progress]     Step     1 / 25000  [------------------------] 0.0% | Time: 7.9s | ETA: 3292m 8s
+  [Compute Speed]       259.2 tok/s | 9.42 GFLOPs/s | 7901.46 ms/step (Batch: 32 x 64 = 2048 toks)
+  [Model Dimensions]    4/5 Layers Active | Embed: 256 | Heads: 8 (4 KV GQA) | FFN: 512
+------------------------------------------------------------------------
+  [Loss & Convergence]  Loss: 8.9411 (EMA: 8.9411) | PPL: 7639.63 | Min Loss: 8.9411
+  [Accuracy Gauges]     Top-1: 0.1% | Top-20: 1.8% | Rank-Score: 0.7%
+  [Dynamic LR & Scale]  LR: 0.000010 (gain: 1.00x) | Penalty: 0.090 (Taylor Conf: 0.0%)
+  [CoC Logic & Proof]   Proof Consistency: 100.0% | Type-Attention Prior: ACTIVE (alpha=0.25)
+------------------------------------------------------------------------
+  [Adaptive Vocab 10k]  Active Vocab: 10000 / 10,000 subwords (100.0% capacity)
+  [Multi-Formula Split] F1(Natural): 4.2% | F2(Nesterov): 14.4% | F3(AdamW): 24.8% | F4(Sparse): 56.6%
+========================================================================
+
+[TRAIN_STEP] Step     1/25000 | Loss=8.9411 | EMA=8.9411 | LR=0.000010 | Top1=0.1% | Top20=1.8% | PPL=7639.6 | Penalty=0.090 | Ctx=64
+[TRAIN_STEP] Step     2/25000 | Loss=8.8043 | EMA=8.9343 | LR=0.000010 | Top1=0.0% | Top20=0.0% | PPL=6662.9 | Penalty=0.090 | Ctx=64
+[TRAIN_STEP] Step     3/25000 | Loss=8.7574 | EMA=8.9254 | LR=0.000010 | Top1=0.0% | Top20=0.0% | PPL=6357.8 | Penalty=0.081 | Ctx=64
+[TRAIN_STEP] Step     4/25000 | Loss=8.8503 | EMA=8.9217 | LR=0.000013 | Top1=0.0% | Top20=0.0% | PPL=6976.7 | Penalty=0.083 | Ctx=64
+[TRAIN_STEP] Step     5/25000 | Loss=8.8254 | EMA=8.9169 | LR=0.000016 | Top1=0.0% | Top20=0.0% | PPL=6805.1 | Penalty=0.083 | Ctx=64
+[TRAIN_STEP] Step     6/25000 | Loss=8.7056 | EMA=8.9063 | LR=0.000019 | Top1=0.0% | Top20=0.0% | PPL=6036.3 | Penalty=0.084 | Ctx=64
+[TRAIN_STEP] Step     7/25000 | Loss=8.7893 | EMA=8.9004 | LR=0.000022 | Top1=0.0% | Top20=0.0% | PPL=6563.6 | Penalty=0.081 | Ctx=64
+[TRAIN_STEP] Step     8/25000 | Loss=8.8981 | EMA=8.9003 | LR=0.000026 | Top1=0.0% | Top20=0.0% | PPL=7317.8 | Penalty=0.085 | Ctx=64
+[TRAIN_STEP] Step     9/25000 | Loss=8.7407 | EMA=8.8923 | LR=0.000029 | Top1=0.0% | Top20=0.0% | PPL=6252.3 | Penalty=0.088 | Ctx=64
+[TRAIN_STEP] Step    10/25000 | Loss=8.7477 | EMA=8.8851 | LR=0.000032 | Top1=0.0% | Top20=0.0% | PPL=6296.2 | Penalty=0.085 | Ctx=64
+[TRAIN_STEP] Step    11/25000 | Loss=8.7253 | EMA=8.8771 | LR=0.000035 | Top1=0.0% | Top20=0.0% | PPL=6157.0 | Penalty=0.076 | Ctx=64
+[TRAIN_STEP] Step    12/25000 | Loss=8.8087 | EMA=8.8737 | LR=0.000039 | Top1=0.0% | Top20=0.0% | PPL=6692.0 | Penalty=0.077 | Ctx=64
+[TRAIN_STEP] Step    13/25000 | Loss=8.8638 | EMA=8.8732 | LR=0.000042 | Top1=0.0% | Top20=0.0% | PPL=7071.2 | Penalty=0.077 | Ctx=64
+[TRAIN_STEP] Step    14/25000 | Loss=8.7445 | EMA=8.8668 | LR=0.000045 | Top1=0.0% | Top20=0.0% | PPL=6276.0 | Penalty=0.068 | Ctx=64
+[TRAIN_STEP] Step    15/25000 | Loss=8.8012 | EMA=8.8635 | LR=0.000049 | Top1=0.0% | Top20=1.4% | PPL=6641.9 | Penalty=0.069 | Ctx=64
+[TRAIN_STEP] Step    16/25000 | Loss=8.8915 | EMA=8.8649 | LR=0.000052 | Top1=0.0% | Top20=0.0% | PPL=7269.9 | Penalty=0.069 | Ctx=64
+[TRAIN_STEP] Step    17/25000 | Loss=8.7968 | EMA=8.8615 | LR=0.000026 | Top1=0.0% | Top20=0.0% | PPL=6613.2 | Penalty=0.059 | Ctx=64
+[TRAIN_STEP] Step    18/25000 | Loss=8.7682 | EMA=8.8568 | LR=0.000028 | Top1=0.0% | Top20=0.0% | PPL=6426.3 | Penalty=0.043 | Ctx=64
+[TRAIN_STEP] Step    19/25000 | Loss=8.7876 | EMA=8.8534 | LR=0.000029 | Top1=0.0% | Top20=0.0% | PPL=6552.5 | Penalty=0.049 | Ctx=64
+[TRAIN_STEP] Step    20/25000 | Loss=8.8021 | EMA=8.8508 | LR=0.000031 | Top1=0.0% | Top20=0.0% | PPL=6648.2 | Penalty=0.040 | Ctx=64
+[TRAIN_STEP] Step    21/25000 | Loss=8.8517 | EMA=8.8508 | LR=0.000033 | Top1=0.0% | Top20=0.0% | PPL=6986.3 | Penalty=0.040 | Ctx=64
+[TRAIN_STEP] Step    22/25000 | Loss=8.8111 | EMA=8.8489 | LR=0.000034 | Top1=0.0% | Top20=0.0% | PPL=6708.3 | Penalty=0.046 | Ctx=64
+[TRAIN_STEP] Step    23/25000 | Loss=8.8179 | EMA=8.8473 | LR=0.000036 | Top1=0.0% | Top20=0.0% | PPL=6754.1 | Penalty=0.047 | Ctx=64
+[TRAIN_STEP] Step    24/25000 | Loss=8.8672 | EMA=8.8483 | LR=0.000037 | Top1=0.0% | Top20=0.0% | PPL=7095.4 | Penalty=0.045 | Ctx=64
+[TRAIN_STEP] Step    25/25000 | Loss=8.7861 | EMA=8.8452 | LR=0.000019 | Top1=0.0% | Top20=0.0% | PPL=6542.9 | Penalty=0.023 | Ctx=64
+[TRAIN_STEP] Step    26/25000 | Loss=8.8772 | EMA=8.8468 | LR=0.000019 | Top1=0.0% | Top20=0.0% | PPL=7166.5 | Penalty=0.025 | Ctx=64
+[TRAIN_STEP] Step    27/25000 | Loss=8.8189 | EMA=8.8454 | LR=0.000017 | Top1=0.0% | Top20=0.0% | PPL=6761.0 | Penalty=0.028 | Ctx=64
+[TRAIN_STEP] Step    28/25000 | Loss=8.7317 | EMA=8.8397 | LR=0.000018 | Top1=0.0% | Top20=0.0% | PPL=6196.4 | Penalty=0.027 | Ctx=64
+[TRAIN_STEP] Step    29/25000 | Loss=8.7182 | EMA=8.8336 | LR=0.000018 | Top1=0.0% | Top20=0.0% | PPL=6113.3 | Penalty=0.019 | Ctx=64
+[TRAIN_STEP] Step    30/25000 | Loss=8.8544 | EMA=8.8347 | LR=0.000019 | Top1=0.0% | Top20=2.0% | PPL=7005.4 | Penalty=0.023 | Ctx=64
+[TRAIN_STEP] Step    31/25000 | Loss=8.7767 | EMA=8.8318 | LR=0.000020 | Top1=0.0% | Top20=0.0% | PPL=6481.4 | Penalty=0.026 | Ctx=64
+[TRAIN_STEP] Step    32/25000 | Loss=8.8049 | EMA=8.8304 | LR=0.000020 | Top1=0.0% | Top20=0.0% | PPL=6666.5 | Penalty=0.023 | Ctx=64
+[TRAIN_STEP] Step    33/25000 | Loss=8.7704 | EMA=8.8274 | LR=0.000021 | Top1=0.0% | Top20=0.0% | PPL=6441.0 | Penalty=0.012 | Ctx=64
+[TRAIN_STEP] Step    34/25000 | Loss=8.7534 | EMA=8.8237 | LR=0.000022 | Top1=0.0% | Top20=0.0% | PPL=6332.2 | Penalty=0.010 | Ctx=64
+[TRAIN_STEP] Step    35/25000 | Loss=8.8239 | EMA=8.8237 | LR=0.000022 | Top1=0.0% | Top20=0.0% | PPL=6795.0 | Penalty=0.011 | Ctx=64
+[TRAIN_STEP] Step    36/25000 | Loss=8.6882 | EMA=8.8170 | LR=0.000023 | Top1=0.0% | Top20=0.0% | PPL=5932.5 | Penalty=0.010 | Ctx=64
+[TRAIN_STEP] Step    37/25000 | Loss=8.8090 | EMA=8.8166 | LR=0.000024 | Top1=0.0% | Top20=0.0% | PPL=6694.2 | Penalty=0.016 | Ctx=64
+[TRAIN_STEP] Step    38/25000 | Loss=8.8023 | EMA=8.8158 | LR=0.000024 | Top1=0.0% | Top20=0.0% | PPL=6649.2 | Penalty=0.039 | Ctx=64
+[TRAIN_STEP] Step    39/25000 | Loss=8.8207 | EMA=8.8161 | LR=0.000025 | Top1=0.0% | Top20=0.0% | PPL=6773.3 | Penalty=0.031 | Ctx=64
+[TRAIN_STEP] Step    40/25000 | Loss=8.8900 | EMA=8.8198 | LR=0.000025 | Top1=0.0% | Top20=0.0% | PPL=7259.3 | Penalty=0.039 | Ctx=64
+[TRAIN_STEP] Step    41/25000 | Loss=8.8028 | EMA=8.8189 | LR=0.000026 | Top1=0.0% | Top20=0.0% | PPL=6652.6 | Penalty=0.056 | Ctx=64

@@ -45,12 +45,12 @@ namespace ring1
     inline float trust_region_for_loss(float loss)
     {
         if (loss >= 6.0f)
-            return 0.12f;
+            return 0.08f;
         if (loss >= 3.0f)
-            return 0.12f + (0.35f - 0.12f) * (6.0f - loss) / 3.0f; // 6->0.12, 3->0.35
+            return 0.08f + (0.20f - 0.08f) * (6.0f - loss) / 3.0f; // 6->0.08, 3->0.20
         if (loss >= 1.0f)
-            return 0.35f + (0.60f - 0.35f) * (3.0f - loss) / 2.0f; // 3->0.35, 1->0.60
-        return 0.60f;
+            return 0.20f + (0.35f - 0.20f) * (3.0f - loss) / 2.0f; // 3->0.20, 1->0.35
+        return 0.35f;
     }
 
     /**

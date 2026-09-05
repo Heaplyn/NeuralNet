@@ -161,7 +161,8 @@ namespace ring2
     // Constructor: Builds embeddings, transformer blocks with GQA and SwiGLU, RMSNorm, and LM Head
     TransformerLM::TransformerLM(TransformerConfig cfg)
         : config(cfg),
-          embedding(cfg.vocab_size, cfg.max_seq_len, cfg.embed_dim)
+          embedding(cfg.vocab_size, cfg.max_seq_len, cfg.embed_dim),
+          type_attention(cfg.embed_dim, cfg.type_dim)
     {
 
         for (size_t i = 0; i < cfg.num_layers; ++i)
@@ -187,10 +188,98 @@ namespace ring2
         {
             b.reset_gradients();
         }
+        if (config.enable_coc_type_attention)
+        {
+            type_attention.reset_gradients();
+        }
         grad_ln_f_gamma = ring0::Matrix::zeros(1, config.embed_dim);
         grad_ln_f_beta = ring0::Matrix::zeros(1, config.embed_dim);
         grad_W_head = ring0::Matrix::zeros(config.embed_dim, config.vocab_size);
         grad_b_head = ring0::Matrix::zeros(1, config.vocab_size);
+    }
+
+    // Saves rolling in-memory snapshot of healthy parameters
+    void TransformerLM::save_safe_snapshot()
+    {
+        safe_snapshot.token_weights = embedding.token_weights;
+        safe_snapshot.pos_weights = embedding.pos_weights;
+        safe_snapshot.block_weights.clear();
+
+        for (const auto &b : blocks)
+        {
+            safe_snapshot.block_weights.push_back(b.attention.W_q);
+            safe_snapshot.block_weights.push_back(b.attention.b_q);
+            safe_snapshot.block_weights.push_back(b.attention.W_k);
+            safe_snapshot.block_weights.push_back(b.attention.b_k);
+            safe_snapshot.block_weights.push_back(b.attention.W_v);
+            safe_snapshot.block_weights.push_back(b.attention.b_v);
+            safe_snapshot.block_weights.push_back(b.attention.W_o);
+            safe_snapshot.block_weights.push_back(b.attention.b_o);
+
+            safe_snapshot.block_weights.push_back(b.ln1_gamma);
+            safe_snapshot.block_weights.push_back(b.ln1_beta);
+
+            safe_snapshot.block_weights.push_back(b.W_gate);
+            safe_snapshot.block_weights.push_back(b.b_gate);
+            safe_snapshot.block_weights.push_back(b.W_up);
+            safe_snapshot.block_weights.push_back(b.b_up);
+            safe_snapshot.block_weights.push_back(b.W_down);
+            safe_snapshot.block_weights.push_back(b.b_down);
+
+            safe_snapshot.block_weights.push_back(b.ln2_gamma);
+            safe_snapshot.block_weights.push_back(b.ln2_beta);
+        }
+
+        safe_snapshot.ln_f_gamma = ln_f_gamma;
+        safe_snapshot.ln_f_beta = ln_f_beta;
+        safe_snapshot.b_head = b_head;
+        safe_snapshot.valid = true;
+    }
+
+    // Restores model weights to the last known healthy snapshot
+    bool TransformerLM::restore_safe_snapshot()
+    {
+        if (!safe_snapshot.valid)
+            return false;
+
+        embedding.token_weights = safe_snapshot.token_weights;
+        embedding.pos_weights = safe_snapshot.pos_weights;
+
+        size_t mat_idx = 0;
+        for (auto &b : blocks)
+        {
+            if (mat_idx + 18 > safe_snapshot.block_weights.size())
+                break;
+
+            b.attention.W_q = safe_snapshot.block_weights[mat_idx++];
+            b.attention.b_q = safe_snapshot.block_weights[mat_idx++];
+            b.attention.W_k = safe_snapshot.block_weights[mat_idx++];
+            b.attention.b_k = safe_snapshot.block_weights[mat_idx++];
+            b.attention.W_v = safe_snapshot.block_weights[mat_idx++];
+            b.attention.b_v = safe_snapshot.block_weights[mat_idx++];
+            b.attention.W_o = safe_snapshot.block_weights[mat_idx++];
+            b.attention.b_o = safe_snapshot.block_weights[mat_idx++];
+
+            b.ln1_gamma = safe_snapshot.block_weights[mat_idx++];
+            b.ln1_beta = safe_snapshot.block_weights[mat_idx++];
+
+            b.W_gate = safe_snapshot.block_weights[mat_idx++];
+            b.b_gate = safe_snapshot.block_weights[mat_idx++];
+            b.W_up = safe_snapshot.block_weights[mat_idx++];
+            b.b_up = safe_snapshot.block_weights[mat_idx++];
+            b.W_down = safe_snapshot.block_weights[mat_idx++];
+            b.b_down = safe_snapshot.block_weights[mat_idx++];
+
+            b.ln2_gamma = safe_snapshot.block_weights[mat_idx++];
+            b.ln2_beta = safe_snapshot.block_weights[mat_idx++];
+        }
+
+        ln_f_gamma = safe_snapshot.ln_f_gamma;
+        ln_f_beta = safe_snapshot.ln_f_beta;
+        b_head = safe_snapshot.b_head;
+
+        reset_gradients();
+        return true;
     }
 
     // Seeds the LM-head bias with log-unigram frequencies for a fast loss start.
@@ -402,6 +491,12 @@ namespace ring2
             update_b(b.ln2_beta, b.grad_ln2_beta);
         }
 
+        if (config.enable_coc_type_attention)
+        {
+            update_w(type_attention.W_type_q, type_attention.grad_W_type_q);
+            update_w(type_attention.W_type_k, type_attention.grad_W_type_k);
+        }
+
         update_b(ln_f_gamma, grad_ln_f_gamma);
         update_b(ln_f_beta, grad_ln_f_beta);
         update_b(b_head, grad_b_head);
@@ -416,6 +511,12 @@ namespace ring2
         vector<ring0::Matrix *> grads;
         grads.push_back(&embedding.grad_token_weights);
         grads.push_back(&embedding.grad_pos_weights);
+
+        if (config.enable_coc_type_attention)
+        {
+            grads.push_back(&type_attention.grad_W_type_q);
+            grads.push_back(&type_attention.grad_W_type_k);
+        }
 
         size_t active_n = min(num_active_layers, blocks.size());
         for (size_t i = 0; i < active_n; ++i)

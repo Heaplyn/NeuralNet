@@ -8,6 +8,7 @@
 #include "ring0/tensor.hpp"
 #include "ring1/embedding.hpp"
 #include "ring1/transformer_block.hpp"
+#include "ring1/dependent_type_attention.hpp"
 #include "ring1/adamw.hpp"
 #include <vector>
 #include <string>
@@ -54,11 +55,13 @@ namespace ring2
         size_t num_kv_heads = 4;  ///< Number of Key/Value attention heads (N_kv for GQA)
         size_t num_layers = 5;    ///< Number of stacked Transformer decoder blocks (N)
         size_t ffn_dim = 192;     ///< SwiGLU expansion hidden dimension
+        bool enable_coc_type_attention = true; ///< Constructive type-directed attention prior
+        size_t type_dim = 64;     ///< Dependent type embedding dimension
     };
 
     /**
      * @class TransformerLM
-     * @brief Complete Causal Transformer Large Language Model with GQA, Min-P/Top-P Sampling, and Dynamic Growth.
+     * @brief Complete Causal Transformer Large Language Model with GQA, Min-P/Top-P Adaptive Sampling, Dynamic Growth, and Calculus of Constructions Type Attention.
      */
     class TransformerLM
     {
@@ -67,6 +70,7 @@ namespace ring2
 
         ring1::EmbeddingLayer embedding;        ///< Token & positional embedding layer
         vector<ring1::TransformerBlock> blocks; ///< Stack of Transformer decoder blocks
+        ring1::DependentTypeAttention type_attention; ///< Calculus of Constructions dependent type attention engine
 
         // --- Final RMSNorm (ln_f) ---
         ring0::Matrix ln_f_gamma, ln_f_beta;
@@ -80,6 +84,25 @@ namespace ring2
         ring0::Tensor3D last_blocks_output;
         ring0::Tensor3D last_ln_f;
         ring0::Matrix last_logits;
+        ring0::Tensor3D last_type_compat;
+
+        // --- Rolling Safe Snapshot for Instant Weight Rollback Recovery ---
+        struct ModelSnapshot
+        {
+            bool valid = false;
+            ring0::Matrix token_weights;
+            ring0::Matrix pos_weights;
+            vector<ring0::Matrix> block_weights;
+            ring0::Matrix ln_f_gamma, ln_f_beta, b_head;
+        };
+
+        ModelSnapshot safe_snapshot;
+
+        /// Saves rolling copy of healthy model parameters
+        void save_safe_snapshot();
+
+        /// Restores model weights to the last known healthy snapshot
+        bool restore_safe_snapshot();
 
         explicit TransformerLM(TransformerConfig cfg = {});
 

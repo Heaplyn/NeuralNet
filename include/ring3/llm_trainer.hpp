@@ -72,6 +72,10 @@ struct LLMTrainingConfig {
     bool use_armijo_line_search = true;    ///< Armijo-Goldstein step validation
     bool use_data_filter = false;          ///< Shannon information entropy batch filter
 
+    // --- Calculus of Constructions (CoC) Formal Reasoning ---
+    bool enable_coc_verification = true;   ///< Run CoC dependent-type & proof verification every few steps
+    size_t coc_verification_interval = 5;  ///< Interval in steps for formal CoC proof check (every 5 steps)
+
     // --- Periodic "text challenge" evaluation ---
     size_t eval_interval = 100;   ///< Fire the on_eval callback every N steps (0 disables)
 };
@@ -96,6 +100,8 @@ struct LLMStepMetrics {
     float taylor_penalty_conf; ///< Confidence score C in [0, 1] for Taylor penalty prediction
     float taylor_penalty_pred; ///< Taylor predicted optimal penalty step
     bool bad_batch_skipped = false; ///< True if loss > 15.0 caused batch update skip
+    float coc_proof_score = 1.0f;   ///< CoC proof consistency score in [0, 1]
+    bool coc_verified = true;       ///< True if CoC type check passed
 };
 
 /**
@@ -118,6 +124,7 @@ struct BenchmarkTelemetry {
     float penalty_factor = 0.0f;
     float taylor_penalty_conf = 0.0f;
     float taylor_penalty_pred = 0.0f;
+    float coc_proof_consistency = 1.0f;
     size_t active_vocab_size = 0;
     size_t active_context_length = 0;
     size_t active_model_layers = 0;

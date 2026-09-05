@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
+                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Progressive Curriculum & Horizon Growth"
+              "title": "Activation Functions"
             }
           }
         ]
@@ -115,7 +115,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
+                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -134,7 +134,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
+                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -177,7 +177,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
+                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -206,6 +206,12 @@
   },
   "active": "8f64a097ce1ad7c3",
   "lastOpenFiles": [
+    "00 - Overview & Architecture/Ring Dependency Hierarchy.md",
+    "00 - Overview & Architecture/Architecture Map.md",
+    "01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus.md",
+    "05 - Theoretical Foundations & Physics/Adaptive Focal Loss Theory.md",
+    "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
+    "01 - Ring 0 (Core Math & Hardware)/Calculus of Constructions & Dependent-Typed Neural Reasoning.md",
     "01 - Ring 0 (Core Math & Hardware)/Taylor Penalty Prediction & Confidence Gating.md",
     "02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov.md.tmp.20512.e015cd96e9d6",
     "02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent.md.tmp.20512.05fde7146050",
@@ -220,10 +226,7 @@
     "01 - Ring 0 (Core Math & Hardware)/Numerical Stability & NaN Prevention Physics.md",
     "04 - Ring 3 (Data & Training Pipelines)/Universal Data Ingestion (CSV, TXT, BIN).md",
     "03 - Ring 2 (Models & Transformers)/Autoregressive KV-Cache Generation.md",
-    "00 - Overview & Architecture/Ring Dependency Hierarchy.md",
-    "05 - Theoretical Foundations & Physics/Adaptive Focal Loss Theory.md",
     "05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information.md",
-    "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
     "03 - Ring 2 (Models & Transformers)/Semantic VocabManager & Lexicon Clusters.md",
     "03 - Ring 2 (Models & Transformers)/BPE Tokenizer & Merging Engine.md",
     "02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov.md",
@@ -233,11 +236,8 @@
     "00 - Overview & Architecture/System Roadmap.md",
     "05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization.md",
     "05 - Theoretical Foundations & Physics",
-    "04 - Ring 3 (Data & Training Pipelines)/Token Relevancy & Interpolated Parsing.md",
     "04 - Ring 3 (Data & Training Pipelines)",
-    "03 - Ring 2 (Models & Transformers)/TransformerLM Decoder (GQA + SwiGLU + RoPE).md",
     "03 - Ring 2 (Models & Transformers)",
-    "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
     "02 - Ring 1 (Layers & Advanced Optimizers)",
     "01 - Ring 0 (Core Math & Hardware)",
     "00 - Overview & Architecture"

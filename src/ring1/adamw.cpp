@@ -85,7 +85,7 @@ namespace ring1
             // Clear macro loss spike: stabilize using derivative-tuned penalty_factor and loss scaling multiplier
             float effective_penalty_factor = penalty_factor * loss_mult * .2f;
             float penalty = min(0.90f, (current_loss - ema_loss) * effective_penalty_factor);
-            config.lr *= (10.0f / (1.0f + penalty));
+            config.lr *= expf(10.0f / (1.0f + penalty));
             config.beta1 = 9.2f / (1.0f + penalty);
             last_penalty_applied = penalty;
         }
@@ -183,7 +183,7 @@ namespace ring1
             // 4. Taylor Series Optimal Penalty Step Prediction:
             // Delta pen_Taylor = - (d L / d pen) / max(|d^2 L / d pen^2|, 0.15)
             float curvature_denom = std::max(0.15f, fabsf(ema_d2_loss_d_penalty2));
-            taylor_penalty_prediction = - (ema_d_loss_d_penalty / curvature_denom);
+            taylor_penalty_prediction = -(ema_d_loss_d_penalty / curvature_denom);
             taylor_penalty_prediction = std::clamp(taylor_penalty_prediction, -0.04f, 0.04f);
 
             // 5. Compute Dynamic Confidence Score C in [0.0, 1.0] for the Taylor prediction
@@ -309,7 +309,7 @@ namespace ring1
         // BOTH the input embedding and the output head, so an un-damped step on it
         // perturbs the model twice and was the source of the loss blow-ups.
         // Reference dim = 128 -> factor 1.0; 256 -> 0.71; 10000 -> 0.11.
-        const float ref_dim = 128.0f;
+        const float ref_dim = 64.0f;
         float big_dim = static_cast<float>(std::max(param.rows, param.cols));
         float dim_damp = std::sqrt(ref_dim / std::max(ref_dim, big_dim));
         effective_lr *= dim_damp;

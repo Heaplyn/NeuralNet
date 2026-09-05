@@ -8,6 +8,7 @@
  */
 
 #include "ring0/tensor.hpp"
+#include "ring0/calculus_of_constructions.hpp"
 #include "ring2/tokenizer.hpp"
 #include "ring2/transformer_lm.hpp"
 #include <vector>
@@ -19,7 +20,7 @@ namespace ring2 {
 
 /**
  * @struct SemanticMeaning
- * @brief Semantic representation of a term with a meaning transformation matrix and concept vector.
+ * @brief Semantic representation of a term with a meaning transformation matrix, concept vector, and CoC Dependent Type.
  */
 struct SemanticMeaning {
     std::string term;
@@ -29,6 +30,8 @@ struct SemanticMeaning {
     std::vector<float> hash_vector;     ///< (1 x embed_dim) Deterministic hash fingerprint vector
     int category_id = 0;                ///< Layer 2 semantic category index
     size_t frequency = 1;
+    ring0::CoCTermPtr coc_type_signature = nullptr; ///< Calculus of Constructions dependent type signature
+    ring0::UniverseSort coc_universe = ring0::UniverseSort::TYPE_0; ///< CoC Universe level
 };
 
 /**
@@ -43,6 +46,7 @@ struct SemanticCategory {
     ring0::Matrix meta_meaning_matrix;  ///< (embed_dim x embed_dim) Higher-order category transformation
     std::vector<float> centroid_vector; ///< (1 x embed_dim) Center of semantic mass for this category
     size_t member_count = 0;
+    ring0::CoCTermPtr coc_type_constructor = nullptr; ///< CoC dependent type family / constructor \Pi (x : A). B
 };
 
 /**
