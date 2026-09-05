@@ -72,33 +72,35 @@ namespace ring0
         float adamw_beta2 = 1.1f;                     ///< 2nd moment exponential smoothing
         float adamw_eps = 1e-8f;                      ///< Numerical stability constant
         float base_weight_decay = 0.01f;              ///< Decoupled L2 regularization
-        float max_trust_region_step = 0.75f;          ///< Per-element step cap for fine-tuning
-        float min_trust_region_step = 0.8f;           ///< Per-element step cap during early/high loss
+        float max_trust_region_step = 0.5f;           ///< Per-element step cap for fine-tuning
+        float min_trust_region_step = 0.06f;          ///< Per-element step cap during early/high loss
 
         // --- Stability Watchdog & Weight Rollback Recovery ---
         bool enable_weight_rollback_recovery = true; ///< Restore healthy snapshot on extreme loss surge
-        float bad_batch_loss_threshold = 9.0f;       ///< Loss magnitude triggering instant snapshot rollback
-        size_t watchdog_trigger_streak = 3;          ///< Consecutive loss spikes required to pause adaptive modules
-        size_t watchdog_min_recovery_steps = 15;     ///< Minimum cooldown duration during stability recovery
-        float watchdog_rise_gap = 0.80f;             ///< Loss gap over EMA that counts as an anomalous step
-        float watchdog_recover_gap = 0.30f;          ///< Target proximity to baseline for watchdog disengagement
-        float watchdog_lr_penalty = 0.40f;           ///< LR scaling multiplier while watchdog is active
-        size_t dataset_cooldown_steps = 10;          ///< Steps to throttle LR by 40% when expanding corpus slice
-        size_t context_cooldown_steps = 10;          ///< Steps to throttle LR by 40% when expanding sequence length
+        float bad_batch_loss_threshold = 7.8f;       // catch earlier
+        float watchdog_rise_gap = 0.45f;             // more sensitive to jumps over EMA
+        size_t watchdog_trigger_streak = 2;          // act faster
+        float watchdog_lr_penalty = 0.25f;           // stronger LR suppression while recovering
+        size_t watchdog_min_recovery_steps = 25;     // longer cooldown period
+        // float watchdog_rise_gap = 0.80f;             ///< Loss gap over EMA that counts as an anomalous step
+        float watchdog_recover_gap = 0.30f; ///< Target proximity to baseline for watchdog disengagement
+        // float watchdog_lr_penalty = 0.40f;  ///< LR scaling multiplier while watchdog is active
+        size_t dataset_cooldown_steps = 10; ///< Steps to throttle LR by 40% when expanding corpus slice
+        size_t context_cooldown_steps = 10; ///< Steps to throttle LR by 40% when expanding sequence length
 
         // --- Multi-Formula Weight Physics Routing ---
         bool enable_multi_formula_routing = true;    ///< Dynamic 4-Formula parameter update physics
-        float f1_natural_gradient_threshold = 0.65f; ///< Importance threshold for Geodesic Natural Gradient
-        float f2_nesterov_threshold = 0.40f;         ///< Importance threshold for Curvature-Modulated Nesterov
-        float f3_adamw_threshold = 0.30f;            ///< Importance threshold for Variance-Bounded AdamW
-        float f4_sparse_decay_rate = 0.09f;          ///< Pruning / inertial decay rate for low-salience weights
+        float f1_natural_gradient_threshold = 0.55f; ///< Importance threshold for Geodesic Natural Gradient
+        float f2_nesterov_threshold = 0.32f;         ///< Importance threshold for Curvature-Modulated Nesterov
+        float f3_adamw_threshold = 0.18f;            ///< Importance threshold for Variance-Bounded AdamW
+        float f4_sparse_decay_rate = 0.04f;          ///< Pruning / inertial decay rate for low-salience weights
 
         // --- Taylor Trajectory Predictor & Curvature ---
         bool enable_taylor_prediction = true;  ///< 2nd-order Taylor series optimal penalty calculation
-        float taylor_step_damping = -0.20f;    ///< Step dampener for predicted penalty update
-        float taylor_min_confidence = 0.45f;   ///< Minimum confidence score required to apply Taylor step
+        float taylor_step_damping = -0.42f;    ///< Step dampener for predicted penalty update
+        float taylor_min_confidence = 0.22f;   ///< Minimum confidence score required to apply Taylor step
         bool enable_rayleigh_curvature = true; ///< Second-order Rayleigh quotient loss curvature scaling
-        float curvature_scale_floor = 0.1f;    ///< Minimum allowable curvature multiplier
+        float curvature_scale_floor = 0.02f;   ///< Minimum allowable curvature multiplier
         float curvature_scale_ceiling = 3.00f; ///< Maximum allowable curvature multiplier
 
         // --- Generation & Sampling Hyperparameters ---

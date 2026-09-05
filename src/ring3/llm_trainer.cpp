@@ -984,20 +984,152 @@ namespace ring3
                 on_step(metrics);
             }
 
-            // Stream detailed step telemetry to run debug file
-            stringstream log_ss;
-            log_ss << "Step " << setw(5) << step << "/" << config.steps
+            // ------------------------------------------------------------------
+            //  Rich per-step debug log entry.
+            //  A multi-line block per step so that when we diagnose divergences
+            //  after the fact we can see EVERYTHING the trainer knew this step,
+            //  and how each quantity changed since the previous step.
+            //  Layout:
+            //    LINE 1: single-line summary (easy to grep)
+            //    LINE 2: loss family        (loss, ema_short/long, min, gaps, deltas)
+            //    LINE 3: learning-rate math (scheduled, shrink, gain, inv_mult, applied, delta)
+            //    LINE 4: gradients          (pre-clip norm, was_clipped, delta)
+            //    LINE 5: penalty family     (factor, delta, dL/dPen, EMA dL/dPen)
+            //    LINE 6: meta network       (scale, focal_gamma, deltas)  when active
+            //    LINE 7: Taylor forecast    (pred_delta, pred_net, reward, confidence)  when valid
+            //    LINE 8: 4-formula physics  (F1/F2/F3/F4 %)  when routing on
+            //    LINE 9: curriculum state   (active_layers, seq_len, dataset_ratio, changes)
+            //    LINE 10: watchdog          (active, bad_streak, recovery_left, baseline)
+            //    LINE 11: EVENTS            (only when something notable changed)
+            //  Only lines with meaningful content are emitted.
+            // ------------------------------------------------------------------
+            {
+                stringstream ss;
+                auto &p = prev_debug_snapshot;
+                auto fdelta = [&](float now, float prev) {
+                    float d = now - prev;
+                    stringstream x;
+                    x << (d >= 0 ? "+" : "") << fixed << setprecision(4) << d;
+                    return x.str();
+                };
+
+                // --- 1. summary line ---
+                ss << "Step " << setw(5) << step << "/" << config.steps
                    << " | Loss=" << fixed << setprecision(4) << metrics.loss
                    << " | EMA=" << fixed << setprecision(4) << ema_loss_short
                    << " | LR=" << fixed << setprecision(6) << metrics.learning_rate
+                   << " | |g|=" << fixed << setprecision(3) << last_grad_norm
                    << " | Top1=" << fixed << setprecision(1) << metrics.top1_accuracy << "%"
-                   << " | Top20=" << fixed << setprecision(1) << metrics.top20_accuracy << "%"
                    << " | PPL=" << fixed << setprecision(1) << metrics.perplexity
                    << " | Penalty=" << fixed << setprecision(3) << metrics.penalty_factor
                    << " | Ctx=" << metrics.active_seq_len;
-            if (metrics.bad_batch_skipped) log_ss << " [BAD_BATCH_SKIPPED]";
-            if (watchdog_active) log_ss << " [WATCHDOG_ACTIVE]";
-            ring0::log_debug_file("TRAIN_STEP", log_ss.str());
+                if (metrics.bad_batch_skipped) ss << " [BAD_BATCH_SKIPPED]";
+                if (watchdog_active)           ss << " [WATCHDOG_ACTIVE]";
+
+                // --- 2. loss family ---
+                float min_l = ring0::Loss::get_min_loss();
+                ss << "\n    LOSS  cur=" << fixed << setprecision(4) << metrics.loss
+                   << " ema_s=" << ema_loss_short
+                   << " ema_l=" << ema_loss_long
+                   << " min=" << min_l
+                   << " gap_from_min=" << fixed << setprecision(4) << (metrics.loss - min_l);
+                if (p.have) {
+                    ss << " dLoss=" << fdelta(metrics.loss, p.loss)
+                       << " dEMA=" << fdelta(ema_loss_short, p.ema_short);
+                }
+
+                // --- 3. LR math ---
+                ss << "\n    LR    applied=" << scientific << setprecision(3) << metrics.learning_rate
+                   << " gain=" << fixed << setprecision(3) << dynamic_lr_gain
+                   << " (watchdog=" << (watchdog_active ? "ON x0.25" : "off") << ")";
+                if (p.have) ss << " dLR=" << fdelta(metrics.learning_rate, p.lr);
+
+                // --- 4. gradients ---
+                ss << "\n    GRAD  pre_clip=" << fixed << setprecision(4) << last_grad_norm
+                   << " clip_thresh=" << config.max_grad_norm
+                   << " clipped=" << ((config.max_grad_norm > 0.0f && last_grad_norm > config.max_grad_norm) ? "YES" : "no");
+                if (p.have) ss << " d|g|=" << fdelta(last_grad_norm, p.grad_norm);
+
+                // --- 5. penalty family ---
+                ss << "\n    PEN   factor=" << fixed << setprecision(4) << metrics.penalty_factor
+                   << " dL/dPen=" << showpos << setprecision(4) << metrics.d_loss_d_penalty << noshowpos
+                   << " EMA_dLdP=" << showpos << setprecision(4) << optimizer.ema_d_loss_d_penalty << noshowpos;
+                if (p.have) ss << " dPen=" << fdelta(metrics.penalty_factor, p.penalty);
+
+                // --- 6. meta-network (only if it produced anything) ---
+                if (metrics.meta_loss_scale > 0.0f) {
+                    ss << "\n    META  scale=" << fixed << setprecision(3) << metrics.meta_loss_scale << "x"
+                       << " focal_gamma=" << setprecision(3) << metrics.meta_focal_gamma;
+                    if (p.have) {
+                        ss << " dScale=" << fdelta(metrics.meta_loss_scale, p.meta_scale)
+                           << " dGamma=" << fdelta(metrics.meta_focal_gamma, p.focal_gamma);
+                    }
+                }
+
+                // --- 7. Taylor forecast (only when valid) ---
+                if (last_forecast.valid) {
+                    float pred_net = last_forecast.predicted[last_forecast.horizon - 1] - last_forecast.diffs[0];
+                    ss << "\n    TAYL  pred_dL=" << showpos << fixed << setprecision(4) << last_forecast.pred_delta[0]
+                       << " pred_net=" << pred_net << noshowpos
+                       << " reward=" << showpos << setprecision(4) << last_forecast.reward << noshowpos
+                       << " conf=" << fixed << setprecision(3) << last_forecast.confidence
+                       << " order=" << last_forecast.order;
+                }
+
+                // --- 8. 4-formula distribution ---
+                const auto &fs = optimizer.last_formula_stats;
+                if (fs.total_params > 0) {
+                    ss << "\n    FORM  F1(NatGrad)=" << fixed << setprecision(1) << fs.pct_f1() << "%"
+                       << " F2(NestCurv)=" << fs.pct_f2() << "%"
+                       << " F3(AdamW)=" << fs.pct_f3() << "%"
+                       << " F4(SparseDecay)=" << fs.pct_f4() << "%";
+                }
+
+                // --- 9. curriculum state ---
+                ss << "\n    CURR  layers=" << model.num_active_layers << "/" << model.blocks.size()
+                   << " seq_len=" << metrics.active_seq_len;
+                if (p.have) {
+                    if (model.num_active_layers != p.active_layers)
+                        ss << " [LAYERS " << p.active_layers << "->" << model.num_active_layers << "]";
+                    if (metrics.active_seq_len != p.seq_len)
+                        ss << " [CTX " << p.seq_len << "->" << metrics.active_seq_len << "]";
+                }
+
+                // --- 10. watchdog ---
+                if (watchdog_active || watchdog_bad_streak > 0) {
+                    ss << "\n    WDOG  active=" << (watchdog_active ? "YES" : "no")
+                       << " bad_streak=" << watchdog_bad_streak
+                       << " recov_left=" << watchdog_recovery_left
+                       << " baseline=" << fixed << setprecision(4) << watchdog_baseline_loss;
+                }
+
+                // --- 11. NOTABLE EVENTS this step (transitions only) ---
+                if (p.have) {
+                    bool any_event = false;
+                    stringstream ev;
+                    if (!p.watchdog && watchdog_active) { ev << " [WATCHDOG_TRIGGERED@" << fixed << setprecision(3) << watchdog_baseline_loss << "]"; any_event = true; }
+                    if (p.watchdog && !watchdog_active) { ev << " [WATCHDOG_RECOVERED]"; any_event = true; }
+                    if (metrics.bad_batch_skipped)      { ev << " [SPIKE_STEP_SKIPPED loss>" << fixed << setprecision(1) << (2.0f * std::log((float)std::max<size_t>(2, model.config.vocab_size))) << "]"; any_event = true; }
+                    if (last_grad_norm == 0.0f && !metrics.bad_batch_skipped) { ev << " [ZERO_GRAD]"; any_event = true; }
+                    if (config.max_grad_norm > 0.0f && last_grad_norm > 5.0f * config.max_grad_norm) { ev << " [HUGE_GRAD_CLIPPED]"; any_event = true; }
+                    if (any_event) ss << "\n    EVENT" << ev.str();
+                }
+
+                ring0::log_debug_file("TRAIN_STEP", ss.str());
+
+                // update snapshot for next step's deltas
+                prev_debug_snapshot.have         = true;
+                prev_debug_snapshot.loss         = metrics.loss;
+                prev_debug_snapshot.ema_short    = ema_loss_short;
+                prev_debug_snapshot.lr           = metrics.learning_rate;
+                prev_debug_snapshot.penalty      = metrics.penalty_factor;
+                prev_debug_snapshot.grad_norm    = last_grad_norm;
+                prev_debug_snapshot.meta_scale   = metrics.meta_loss_scale;
+                prev_debug_snapshot.focal_gamma  = metrics.meta_focal_gamma;
+                prev_debug_snapshot.active_layers= model.num_active_layers;
+                prev_debug_snapshot.seq_len      = metrics.active_seq_len;
+                prev_debug_snapshot.watchdog     = watchdog_active;
+            }
 
             if (on_eval && config.eval_interval > 0 && (step % config.eval_interval == 0))
             {

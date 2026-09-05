@@ -161,6 +161,21 @@ public:
     size_t total_tokens_trained = 0;
     float last_grad_norm = 0.0f;  ///< Most recent pre-clip global L2 gradient norm (0 on spike steps)
 
+    // --- Debug snapshot of previous step (for "what changed" deltas in the debug log) ---
+    struct StepDebugSnapshot {
+        bool  have = false;
+        float loss = 0.0f;
+        float ema_short = 0.0f;
+        float lr = 0.0f;
+        float penalty = 0.0f;
+        float grad_norm = 0.0f;
+        float meta_scale = 0.0f;
+        float focal_gamma = 0.0f;
+        size_t active_layers = 0;
+        size_t seq_len = 0;
+        bool  watchdog = false;
+    } prev_debug_snapshot;
+
     // --- Stability watchdog state (Phase 2 of the stability plan) ---
     // Detects sustained loss RISE above recent EMA. When triggered, temporarily:
     //   * multiplies LR by watchdog_lr_penalty (default 0.25x) each affected step
