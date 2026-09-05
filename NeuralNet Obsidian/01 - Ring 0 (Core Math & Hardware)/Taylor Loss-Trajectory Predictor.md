@@ -6,6 +6,18 @@ The **Taylor Trajectory Predictor** (`ring0::TaylorTrajectoryPredictor`) forecas
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- **Finite differences** — knowing that $\Delta L_t = L_t - L_{t-1}$ approximates $\mathrm{d}L/\mathrm{d}t$, and repeating gives higher-order derivatives
+- The classical **Taylor series** for a smooth function
+- **Newton–Gregory backward extrapolation** — the discrete-time cousin of Taylor with step $h=1$
+- The **Runge phenomenon** — why high-order polynomial extrapolation of a noisy signal blows up (motivates the damping guards here)
+- [[01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus|Loss Formulations & Calculus]] — the `LossDerivativePyramid` that inspired this note's difference ladder
+- Optional: [[02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer|Meta-Neural Loss Optimizer]] — its biggest downstream consumer
+
+---
+
 ## 📎 Relation to prior work (no novelty claimed)
 
 This is a cheap engineering heuristic, not a new method. Extrapolating a loss curve from finite differences for scheduling/early-stopping is old practice; Newton–Gregory extrapolation is standard numerical analysis; the per-order trust damping exists precisely because high-order polynomial extrapolation of a noisy signal is unstable (the Runge phenomenon is real). Treat it as a low-cost foresight signal, useful mainly because it's nearly free — not as a theoretical advance.

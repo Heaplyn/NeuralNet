@@ -4,6 +4,20 @@ The **Meta-Neural Loss Optimizer** (`ring1::MetaLossOptimizer`) is an online sel
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- A working intuition for **REINFORCE / policy gradient** — this network is trained by rewarding weight patterns that preceded a loss drop, not by backprop through the main model
+- The four knobs it controls (see the note body) — mainly LR-scale-like ideas and focal-loss γ
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov|AdamW]] — the primary optimizer whose scale/curvature it modulates
+- [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor]] — its foresight signals feed 4 of the 12 input features and blend into the reward
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent|Training Stability & Fast-Start Descent]] — describes when/why the [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent|watchdog]] freezes this network
+- Basic MLP + GELU
+
+> **Honest framing:** this is a form of learned-optimizer / meta-learning of hyperparameters, an active area with well-known instability challenges when trained *online on the same trajectory* as the main model. Treat it as an experimental adaptive controller (worth ablating with `--safe-mode`), not a proven technique.
+
+---
+
 ## 🎯 Practical Explanation: What is this and Why Does it Exist?
 
 ### The Problem with Fixed Human Schedulers

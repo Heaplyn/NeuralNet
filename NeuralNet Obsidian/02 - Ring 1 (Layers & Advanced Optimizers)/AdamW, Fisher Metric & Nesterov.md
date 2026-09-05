@@ -4,6 +4,18 @@ The `ring1::AdamW` optimizer combines modern decoupled weight decay with second-
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- Vanilla SGD and momentum-SGD (the "accumulate a velocity" idea)
+- Basic Adam — running mean and running variance of the gradient
+- Weight decay vs. L2 regularization — knowing why AdamW *decouples* them
+- [[01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math|Tensor3D & Matrix Math]] — the per-element storage layout
+- [[05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information|Riemannian Manifolds & Fisher Information]] — what the Fisher term actually means geometrically
+- Optional: [[02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics|4-Formula Dynamic Weight Physics]] — the router that this optimizer dispatches to per-parameter
+
+---
+
 ## ⚡ Mathematical Formulations
 
 ### 1. Moment Accumulation & Bias Correction

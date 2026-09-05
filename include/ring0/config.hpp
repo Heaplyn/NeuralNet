@@ -68,8 +68,8 @@ namespace ring0
         float reversal_loss_sensitivity = 1.0f;       ///< Sensitivity factor in divisor (1 + sens * delta_L)
         float global_gradient_clip_norm = 1.0f;       ///< Maximum L2 norm of gradient vectors
         float logit_soft_cap = 20.0f;                 ///< Gemma-style tanh logit soft-capping cap
-        float adamw_beta1 = 1.03f;                    ///< 1st moment exponential smoothing
-        float adamw_beta2 = 1.1f;                     ///< 2nd moment exponential smoothing
+        float adamw_beta1 = .91f;                     ///< 1st moment exponential smoothing
+        float adamw_beta2 = .82f;                     ///< 2nd moment exponential smoothing
         float adamw_eps = 1e-8f;                      ///< Numerical stability constant
         float base_weight_decay = 0.01f;              ///< Decoupled L2 regularization
         float max_trust_region_step = 0.5f;           ///< Per-element step cap for fine-tuning

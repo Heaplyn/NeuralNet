@@ -4,6 +4,21 @@ The `ring3::LLMTrainer` is the central orchestration engine of the entire traini
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- **Mini-batch SGD training loop** — the classical forward → loss → backward → optimizer.step() flow
+- **Warmup + cosine LR schedule** — the baseline this class extends
+- **Cross-entropy loss + softmax** at the token level
+- [[03 - Ring 2 (Models & Transformers)/TransformerLM Decoder (GQA + SwiGLU + RoPE)|TransformerLM Decoder]] — the model being trained
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov|AdamW]] — the optimizer being driven
+- [[04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth|Progressive Curriculum & Horizon Growth]] — how dataset / depth / context grow across the run
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent|Training Stability & Fast-Start Descent]] — the spike-skip and watchdog logic that live in this class
+- [[04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide|Debug Log Format]] — the per-step block the trainer writes
+- Optional: [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Predictor]] & [[02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer|Meta-Loss Network]] — two adaptive controllers this class integrates
+
+---
+
 ## 🎓 Beginner-Friendly Learning Guide: How a Training Step Works
 
 ### The Cyclical Feedback Loop of Deep Learning

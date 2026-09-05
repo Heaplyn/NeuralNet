@@ -4,6 +4,20 @@ Standard deep learning algorithms (like standard SGD) assume the parameter space
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- **KL divergence** between two probability distributions (the "distance" measure this note relies on)
+- **Basic probability** — likelihood, log-likelihood, expectation
+- **Multivariate calculus** — gradients, Hessians (the Fisher matrix is closely related to the expected Hessian of the log-likelihood)
+- **Gradient descent basics** — knowing what "steepest descent" means so the note's "steepest w.r.t. KL, not Euclidean" phrasing lands
+- Linear algebra — matrix inverse, quadratic forms $x^\top M x$
+- Optional: [[02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov|AdamW, Fisher Metric & Nesterov]] — the concrete optimizer that uses the diagonal Fisher approximation described here
+
+> **In one sentence:** this note explains *why* the Fisher term shows up in the AdamW update — it makes the step "steepest with respect to the model's predictive distribution", not just steepest in raw parameter space.
+
+---
+
 ## 🎓 Beginner-Friendly Learning Guide: What is Information Geometry?
 
 ### The Euclidean Distance Fallacy (The Lightbulb Analogy)

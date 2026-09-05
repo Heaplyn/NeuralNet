@@ -4,6 +4,31 @@ During deep neural network training, monitoring live hardware throughput, numeri
 
 RingWrapper features an integrated **Real-Time Visual Benchmark & Telemetry Dashboard** in `Ring 3` (`LLMTrainer`) that updates live metrics every 50 steps.
 
+> **Console vs. log file.** The dashboard here is the *live* view you watch scroll by; the same numbers plus a lot more state are written to `logs/debug_run_*.txt` in a structured block per step. See [[04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide|Debug Log Format & Reading Guide]] for the file format.
+
+---
+
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Architecture]] — the loop that assembles and prints the dashboard
+- [[04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide|Debug Log Format]] — the file version of everything shown here (with deltas)
+- [[03 - Ring 2 (Models & Transformers)/Dynamic Adaptive Vocabulary Sizing (10k Scaling)|Dynamic Vocab Sizing]] — the "Active Vocab" line
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics|4-Formula Dynamic Weight Physics]] — the F1/F2/F3/F4 row
+- [[04 - Ring 3 (Data & Training Pipelines)/Evaluation & Checkpoint Lifecycle|Evaluation & Checkpoint Lifecycle]] — the accuracy metrics (Top-1, Top-20, Rank Score, PPL)
+
+---
+
+## 🧠 The Big Picture
+
+At 3,000+ tokens/sec on a small transformer, staring at raw numbers is useless — you need at-a-glance density. The dashboard is designed so a glance answers three questions:
+
+1. **Am I healthy?** Loss/PPL trend, gradient state, watchdog activity.
+2. **Am I fast?** Tokens/sec, GFLOPs, ms/step — did something regress?
+3. **What is the model actually doing right now?** Layer count, context length, vocab utilization, per-formula weight distribution.
+
+If any of these three surprise you, drop to the debug log for full per-step forensic detail.
+
 ---
 
 ## 🖥️ Live Dashboard Output Visual Layout

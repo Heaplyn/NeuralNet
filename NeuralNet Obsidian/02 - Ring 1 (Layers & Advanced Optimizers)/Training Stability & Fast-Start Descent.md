@@ -4,6 +4,18 @@ Three mechanisms that make cross-entropy loss **start low** and **descend withou
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- Softmax + cross-entropy loss (why the uniform-guess floor equals $\ln V$ nats for a vocab of size $V$)
+- Basic **weight initialization** — fan-in scaling, Xavier/He (this note applies the same intuition to the update step)
+- **Weight tying** in language models — the same matrix used for input embedding and output projection
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov|AdamW]] — where the trust-region clamp and dimension-aware damping actually live
+- [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Architecture]] — where `trust_region_for_loss` is set per-step and where the spike-skip / watchdog logic runs
+- Optional: [[04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide|Debug Log Format]] — to see `[WATCHDOG_TRIGGERED]` / `[SPIKE_STEP_SKIPPED]` events in a real run
+
+---
+
 ## 📎 Relation to prior work (no novelty claimed)
 
 All three are established techniques, not new science: log-frequency bias initialization is a known trick for starting near the data distribution; loss/gradient-dependent step clipping is classic conservative (trust-region) optimization; and scaling updates by $1/\sqrt{\text{dim}}$ is the same spirit as Xavier/He initialization and attention's $1/\sqrt{d_k}$. They're listed here because they're the most grounded and practical parts of the engine — solid engineering, plainly described.
@@ -150,6 +162,36 @@ effective_lr  *= dim_damp;   // higher dimension -> smaller per-element step
 
 ### Why $\sqrt{\cdot}$ and not $1/d$?
 Linear ($1/d$) damping would crush the vocab weight by 78× — so hard it would barely learn. The square root matches how *variance* accumulates across independent dimensions (a sum of $d$ random terms has std $\propto\sqrt{d}$), so it removes the *destabilizing* excess without freezing the layer. It's the same reasoning behind $1/\sqrt{d}$ Xavier/He initialization and the $1/\sqrt{d_k}$ scaling inside attention — this is just that principle applied to the optimizer step.
+
+---
+
+## 4. 🛑 Spike-Step Skip (last-resort safety)
+
+Even with everything above, one truly poisonous batch can still produce logits large enough that a forward-pass loss exceeds `max(12, 2·ln V)` — call that a **spike step**. The trainer detects it via a sanity ceiling on `avg_loss`, and when it fires:
+
+1. The reported number is clamped to the ceiling so it doesn't wreck plots or the EMA.
+2. `grad_logits` is `sanitize_nan_inf`-ed so nothing downstream sees `±inf`.
+3. **Backward pass and optimizer step are skipped entirely.** `model.reset_gradients()` runs; weights are left unchanged.
+4. The meta-network is *not* rewarded for this step — a huge negative reward on a spike teaches it noise it can't act on anyway.
+
+The `[SPIKE_STEP_SKIPPED loss>N]` marker appears on the debug log's `EVENT` line whenever this fires (see [[04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide|Debug Log Format]]).
+
+**Why "skip" and not "shrink":** by the time a step's forward has produced divergent logits, the gradients that would come out of that step are already toxic — even a tiny learning rate applied to them would compound the damage. Skipping the entire update is safer than doing "less" of it.
+
+---
+
+## 5. 🐕 Stability Watchdog (recover-from-drift controller)
+
+Spike-skip handles a single bad step. The **stability watchdog** handles a bad *stretch* — a sustained rise in EMA loss. When `loss > ema_short + 1.5` for **three consecutive steps**, the watchdog fires:
+
+- **LR × 0.25** for the duration.
+- `penalty_factor` is snapped back to ≤ 1.0 (so it stops ratcheting up during the spike).
+- **Meta-network, Taylor foresight nudges, 4-formula routing, and focal amplification are all frozen** — the optimizer runs as plain AdamW while the model recovers.
+- Meta-network online update is skipped (same reasoning as the spike case).
+
+The watchdog releases when the loss returns to within `+0.5` of the pre-spike baseline **AND** at least `25` steps have passed (a minimum freeze so it doesn't flap on and off). The `WDOG` line in the debug log tracks its state and `[WATCHDOG_TRIGGERED@...]` / `[WATCHDOG_RECOVERED]` events mark the transitions.
+
+**Why freeze the adaptive modules specifically:** the online meta-network learns from realized reward, so during a drift episode it's being trained on a stream of "everything I do is making it worse" signals — which is both noisy and misleading (the drift may be from an unrelated source). Freezing lets the model recover on the grounded AdamW baseline, then re-engages the experimental controllers once things are stable again. This mirrors the safe-mode philosophy: nothing is deleted, only paused.
 
 ---
 

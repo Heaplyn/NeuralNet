@@ -4,6 +4,19 @@ The `ring1::RecursiveLayer` implements multi-depth recursive cognitive reasoning
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- **Residual connections** and iterative refinement in the residual stream
+- The general idea of **Universal Transformers** / **Adaptive Computation Time** — this note is a lightweight relative
+- [[03 - Ring 2 (Models & Transformers)/TransformerLM Decoder (GQA + SwiGLU + RoPE)|TransformerLM Decoder]] — the block architecture this composes with
+- [[01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math|Tensor3D & Matrix Math]] — cosine similarity, L2 norms of the thought vectors
+- Optional: [[01 - Ring 0 (Core Math & Hardware)/Config & Telemetry Systems|Config & Telemetry Systems]] — `verbose_thought_chains` controls the per-step diagnostic table
+
+> **Honest framing:** this is iterative refinement inside the residual stream with a diagnostic wrapper — similar in spirit to Universal Transformers, ACT, and inner-monologue designs. On a 10-layer model the practical benefit of deep "thought trees" is limited; the value is mainly the diagnostic telemetry (convergence, cosine similarity between iterations).
+
+---
+
 ## 🎯 Practical Explanation: What is this and Why Does it Exist?
 
 ### The "System 1" vs "System 2" Problem in LLMs

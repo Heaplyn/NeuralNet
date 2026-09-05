@@ -4,6 +4,19 @@ Rather than treating all network parameters uniformly, the **Multi-Formula Dynam
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov|AdamW]] — this engine dispatches from inside the AdamW step
+- **First-order Taylor salience** — `|g · w|` as a proxy for "how much removing this weight would change the loss" (standard in pruning literature)
+- **Diagonal Fisher information** — running average of squared gradients; used here as a cheap curvature proxy
+- **Nesterov accelerated momentum** and **natural gradient** (see [[05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information|Riemannian Manifolds & Fisher Information]])
+- Optional: [[04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide|Debug Log Format]] — the `FORM` line shows this router's live F1/F2/F3/F4 split
+
+> **Honest framing:** per-parameter routing between different update rules is a reasonable adaptive idea (related to layer-wise adaptive optimizers, sparse training, and hybrid second-order methods). The "physics" branding is stylistic — mathematically this is a Taylor/Fisher importance score gating four update variants.
+
+---
+
 ## 🎯 Practical Explanation: What is this and Why Does it Exist?
 
 ### The Uniform Weight Assumption Flaw

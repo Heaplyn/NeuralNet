@@ -4,37 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "50632cad781c5d90",
+        "id": "060bfec480569f25",
         "type": "tabs",
         "children": [
           {
-            "id": "8f64a097ce1ad7c3",
+            "id": "090880940288195b",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
-                "mode": "source",
-                "source": false
-              },
-              "icon": "lucide-file",
-              "title": "Activation Functions"
-            }
-          }
-        ]
-      },
-      {
-        "id": "d78de962adad16c5",
-        "type": "tabs",
-        "children": [
-          {
-            "id": "afeea2e7043c041a",
-            "type": "leaf",
-            "state": {
-              "type": "graph",
+              "type": "empty",
               "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "icon": "lucide-file",
+              "title": "New tab"
             }
           }
         ]
@@ -115,7 +95,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
+                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -134,7 +114,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
+                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -177,7 +157,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
+                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -204,9 +184,21 @@
       "bases:Create new base": false
     }
   },
-  "active": "8f64a097ce1ad7c3",
+  "active": "38140cb836345e1e",
   "lastOpenFiles": [
+    "01 - Ring 0 (Core Math & Hardware)/Taylor Penalty Prediction & Confidence Gating.md.tmp.36356.642b18b076bf",
+    "05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization.md.tmp.36356.3e19a1c0c06e",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi.md.tmp.36356.717c8977948e",
+    "04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture.md.tmp.36356.9d4b56a608b7",
+    "01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor.md.tmp.36356.4ea94dd4f499",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi.md",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer.md.tmp.36356.093ca85396a8",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
+    "01 - Ring 0 (Core Math & Hardware)/Numerical Stability & NaN Prevention Physics.md",
+    "01 - Ring 0 (Core Math & Hardware)/Config & Telemetry Systems.md",
     "00 - Overview & Architecture/Ring Dependency Hierarchy.md",
+    "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
+    "04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide.md",
     "00 - Overview & Architecture/Architecture Map.md",
     "01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus.md",
     "05 - Theoretical Foundations & Physics/Adaptive Focal Loss Theory.md",
@@ -222,24 +214,13 @@
     "03 - Ring 2 (Models & Transformers)/Dynamic Adaptive Vocabulary Sizing (10k Scaling).md",
     "04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture.md",
     "04 - Ring 3 (Data & Training Pipelines)/Evaluation & Checkpoint Lifecycle.md",
-    "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
-    "01 - Ring 0 (Core Math & Hardware)/Numerical Stability & NaN Prevention Physics.md",
     "04 - Ring 3 (Data & Training Pipelines)/Universal Data Ingestion (CSV, TXT, BIN).md",
     "03 - Ring 2 (Models & Transformers)/Autoregressive KV-Cache Generation.md",
     "05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information.md",
     "03 - Ring 2 (Models & Transformers)/Semantic VocabManager & Lexicon Clusters.md",
     "03 - Ring 2 (Models & Transformers)/BPE Tokenizer & Merging Engine.md",
     "02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov.md",
-    "02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi.md",
-    "01 - Ring 0 (Core Math & Hardware)/Config & Telemetry Systems.md",
-    "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
-    "00 - Overview & Architecture/System Roadmap.md",
-    "05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization.md",
     "05 - Theoretical Foundations & Physics",
-    "04 - Ring 3 (Data & Training Pipelines)",
-    "03 - Ring 2 (Models & Transformers)",
-    "02 - Ring 1 (Layers & Advanced Optimizers)",
-    "01 - Ring 0 (Core Math & Hardware)",
-    "00 - Overview & Architecture"
+    "04 - Ring 3 (Data & Training Pipelines)"
   ]
 }

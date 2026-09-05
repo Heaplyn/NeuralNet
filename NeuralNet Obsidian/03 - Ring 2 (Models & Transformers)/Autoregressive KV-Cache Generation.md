@@ -4,6 +4,18 @@ The inference engine in `ring2::TransformerLM::generate` uses persistent **Key-V
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- **Autoregressive decoding** — generating one token at a time, each conditioned on all previous tokens
+- Basic attention — enough to understand what "K" and "V" are and why re-computing them for the whole prefix is wasteful
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi|Attention Mechanics & ALiBi]] — GQA-style attention where the KV heads are already fewer than the Q heads (reduces cache size)
+- **Sampling strategies** — temperature, top-k, top-p (nucleus), repetition penalty
+- [[03 - Ring 2 (Models & Transformers)/TransformerLM Decoder (GQA + SwiGLU + RoPE)|TransformerLM Decoder]] — the training-time counterpart to this inference-time path
+- Optional: [[03 - Ring 2 (Models & Transformers)/BPE Tokenizer & Merging Engine|BPE Tokenizer]] — decode the emitted token IDs back to text
+
+---
+
 ## 🎓 Beginner-Friendly Learning Guide: How LLMs Generate Words
 
 ### The "Autoregressive" Concept (Word-by-Word Generation)

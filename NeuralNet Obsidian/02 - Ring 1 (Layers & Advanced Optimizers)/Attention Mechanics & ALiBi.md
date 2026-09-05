@@ -4,6 +4,20 @@ The `ring1::Attention` module implements **Grouped-Query Causal Self-Attention**
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- **Vanilla scaled dot-product attention** — the original $\operatorname{softmax}(QK^\top / \sqrt{d_k})V$ formulation
+- **Causal masking** — why decoder attention hides future tokens
+- **Multi-head attention** — splitting Q/K/V across independent heads for parallel attention subspaces
+- [[01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math|Tensor3D & Matrix Math]] — the underlying tensor operations
+- [[01 - Ring 0 (Core Math & Hardware)/Activation Functions|Softmax]] — used to normalize attention scores
+- Optional: [[03 - Ring 2 (Models & Transformers)/Autoregressive KV-Cache Generation|KV-Cache Generation]] — during inference, the cached K/V rows are what this module reads back
+
+External context: GQA is the reduction between full MHA (`num_kv_heads == num_heads`) and MQA (`num_kv_heads == 1`), used in LLaMA-2/3, Mistral, Gemma. ALiBi is Press et al. 2022 (Train Short, Test Long). RoPE is Su et al. 2021.
+
+---
+
 ## 🎓 Beginner-Friendly Learning Guide: What is Attention?
 
 ### The Filing Cabinet Analogy (Query, Key, Value)

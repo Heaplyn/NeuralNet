@@ -6,6 +6,20 @@ RingWrapper implements a **2nd-Order Taylor Series Extrapolation to Penalty Opti
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- **Second-order Taylor expansion** — the "loss curves quadratically near the current point" idea and the classical Newton step $-g/H$
+- **Weight decay / regularization** — what the "penalty" being tuned actually controls
+- [[05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization|Multi-Order Loss Derivatives]] — the first-derivative sibling of this note; provides the `dL/dpen` and its EMA
+- [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor]] — same "damped extrapolation + confidence gate" pattern applied to the loss trajectory instead of the penalty
+- Basic **exponential moving averages** (for the SNR and convexity signals)
+- Basic **sign / directional-agreement** logic
+
+> **Honest framing:** this is a scalar Newton-style step on one hyperparameter with a heuristic confidence gate — pragmatic, cheap, useful. Not a novel numerical method.
+
+---
+
 ## 📐 Mathematical Formulation
 
 ### 1. Second-Order Taylor Expansion on the Loss Surface

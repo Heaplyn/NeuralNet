@@ -43,6 +43,7 @@ Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains docume
 - [[04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth|Progressive Curriculum, Horizon Growth & Fast-Track Depth]]
 - [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Optimization Loop & Dynamic Schedules]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Evaluation & Checkpoint Lifecycle|Evaluation Metrics & Multi-File Checkpoint Lifecycle]]
+- [[04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide|Debug Log Format & Reading Guide (per-step 11-line block)]]
 
 ### 📚 [[05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information|05 - Theoretical Foundations & Physics]]
 - [[05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information|Riemannian Manifolds, Natural Gradients & Information Geometry]]

@@ -644,7 +644,7 @@ int main(int argc, char *argv[])
             }
 
             // Save multi-file checkpoint bundle ONLY if loss is 5.2 or less
-            if (m.step >= 50 && m.loss <= 5.2f && m.loss < (best_checkpoint_loss * 1.02f))
+            if (m.step >= 50 && m.loss < (best_checkpoint_loss * .92f))
             {
                 best_checkpoint_loss = min(best_checkpoint_loss, m.loss);
 
@@ -710,7 +710,7 @@ int main(int argc, char *argv[])
     cout << "\nTraining completed in " << fixed << setprecision(2) << train_duration.count() << " seconds.\n";
 
     // Save updated checkpoint ONLY if best achieved loss is 2.6 or less
-    if (best_checkpoint_loss <= 5.2f)
+    if (best_checkpoint_loss <= best_checkpoint_loss * 0.92f && best_checkpoint_loss <= 9.2f)
     {
         bool checkpoint_saved = model.save_checkpoint(checkpoint_path, best_checkpoint_loss);
         if (checkpoint_saved)

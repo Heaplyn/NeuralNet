@@ -4,6 +4,19 @@ The `ring2::TransformerLM` is a modern 10-layer autoregressive causal language m
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- The **decoder-only transformer** architecture (GPT-style) and its per-block structure (norm → attention → residual → norm → FFN → residual)
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi|Attention Mechanics & ALiBi]] — the attention sub-layer this composes
+- **RMSNorm** vs. LayerNorm (why we skip mean-centering)
+- **SwiGLU** — the gated FFN used here instead of ReLU/GELU (Shazeer 2020)
+- **Weight tying** — the LM head reuses the input embedding matrix
+- [[01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math|Tensor3D & Matrix Math]] — for the underlying tensor operations
+- Optional: [[03 - Ring 2 (Models & Transformers)/Autoregressive KV-Cache Generation|KV-Cache Generation]] — inference-time path, complementary to this training-time note
+
+---
+
 ## 🎓 Beginner-Friendly Learning Guide: How a Transformer Decodes Text
 
 ### The End-to-End Pipeline (Step-by-Step)

@@ -4,6 +4,17 @@ To dynamically balance parameter regularization against optimization loss, the e
 
 ---
 
+## 📋 Prerequisites
+
+Before reading this, you should be comfortable with:
+- **AdamW's decoupled weight decay** — the penalty this note controls
+- **Finite differences** — approximating a derivative from two samples: $\Delta L / \Delta P \approx \mathrm{d}L / \mathrm{d}P$
+- **Exponential moving averages** — used here to filter batch-noise from the empirical derivative
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov|AdamW, Fisher Metric & Nesterov]] — the optimizer that consumes the returned penalty factor
+- Optional: [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor]] — a sibling that forecasts loss forward instead of measuring derivatives backward
+
+---
+
 ## 🎯 Practical Explanation: What is this and Why Does it Exist?
 
 ### The Fixed Weight Decay Dilemma
