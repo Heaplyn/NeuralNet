@@ -17,10 +17,11 @@ out/
 *.ipch
 *.log
 
-# Checkpoint binary weight files (keep structure and txt summaries)
-checkpoints/**/*.bin
-checkpoints/*.bin
+# Checkpoints and logs
+checkpoints/
+logs/
 data/*.bin
+*.bin
 
 # Large standard datasets (downloadable; not project-specific source)
 # Kept: corpus.txt, Global_Education.csv, data/code_dataset/ (project inputs)

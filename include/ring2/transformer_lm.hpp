@@ -134,6 +134,15 @@ namespace ring2
         /// Computes a fast, compact fingerprint of model state (norms of key matrices) for mistake detection
         std::vector<float> compute_lightweight_fingerprint() const;
 
+        /// Level A: Computes normalized unit gradient direction signature across active layers
+        std::vector<float> compute_gradient_fingerprint() const;
+
+        /// Level B: Computes normalized latent/logit distribution signature across output predictions
+        std::vector<float> compute_latent_fingerprint(const ring0::Matrix &logits) const;
+
+        /// Level C: Applies gentle geometric parameter repulsion away from a known mistake weight state
+        void apply_parameter_repulsion(const std::vector<float> &bad_fingerprint, float force);
+
         /**
          * @brief Seeds the LM-head output bias with the log-unigram token frequencies.
          *

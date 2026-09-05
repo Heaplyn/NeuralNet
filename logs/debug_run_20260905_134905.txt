@@ -1,6 +1,0 @@
-========================================================================
- RINGWRAPPER NEURALNET SYSTEM EXECUTION & TRAINING DEBUG LOG
- Session Timestamp: 20260905_134905
- Log File Path:     logs/debug_run_20260905_134905.txt
-========================================================================
-

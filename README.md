@@ -28,11 +28,12 @@ Ring 0 (Foundation) ---> Ring 1 (Layers & Physics) ---> Ring 2 (Models) ---> Rin
 ### 1. 🧠 Meta-Neural Loss & Step Optimizer Network (`Ring 1`)
 - Replaces static learning rate schedulers with an online auxiliary neural network ($12 \to 32 \to 16 \to 4$).
 - Observes 8 continuous optimization telemetry signals ($\mathcal{L}_t$, $\Delta\mathcal{L}$, $\Delta^2\mathcal{L}$, $\frac{d\mathcal{L}}{d\text{Pen}}$, gradient variance, alignment, entropy, learning rate) **plus 4 Taylor-forecast signals** (predicted $\Delta\mathcal{L}$, predicted net change, trajectory reward, forecast confidence).
-- Predicts dynamic continuous scaling factors:
-  - $\mathcal{M}_{\mathcal{L}} \in [0.2, 4.0]$: Dynamic Loss Magnitude Multiplier
-  - $\gamma_t \in [0.0, 3.0]$: Adaptive Focal Loss exponent for unigram plateau breakout
-  - $\Delta \alpha_t \in [0.5, 3.0]$: Real-time learning rate step modulator
-  - $\kappa_t \in [0.2, 2.5]$: Rayleigh curvature preconditioning factor
+- Predicts dynamic continuous scaling factors with tightly bounded safety envelopes:
+  - $\mathcal{M}_{\mathcal{L}} \in [0.85, 1.25]$: Dynamic Loss Magnitude Multiplier
+  - $\gamma_t \in [0.0, 0.35]$: Adaptive Focal Loss exponent for unigram plateau breakout
+  - $\Delta \alpha_t \in [0.85, 1.20]$: Real-time learning rate step modulator
+  - $\kappa_t \in [0.80, 1.20]$: Rayleigh curvature preconditioning factor
+- Features **strided policy gradient updates** (every 4 steps), velocity-based step deceleration ($\text{meta\_step\_scale}$ dampening), self-lowering upon adverse loss deltas ($\Delta \mathcal{L} > 0.01$), and a rolling variance health monitor over 30 steps.
 - Learns online via a policy-gradient update across **all** layers ($W_1, W_2, W_3$) with annealed output exploration noise, trained against a blend of the realized reward $-(\mathcal{L}_t - \mathcal{L}_{t-1})$ and the Taylor **trajectory reward** $R_t$.
 
 ### 2. 🔮 Taylor Loss-Trajectory Predictor & nth-Order Foresight (`Ring 0`)
@@ -63,8 +64,13 @@ Getting cross-entropy loss to *start* low and *descend* without detonating, via 
 - **🎯 Log-Unigram Head-Bias Init:** seed the output bias with $b_{\text{head}}[c] = \log P(c)$ so step-0 output *is* the corpus word-frequency distribution. Step-0 loss drops from $\ln V = 9.21$ to unigram entropy $H(p) \approx 7.42$.
 - **📉 Loss-Adaptive Trust Region:** per-element step cap $|\Delta w|_{\max}$ moves inversely with loss — tight ($0.12$) when loss is high and unstable, loosening to $0.60$ as loss converges.
 - **📐 Dimension-Aware Damping:** scale steps by $\sqrt{d_{\text{ref}}/\max(d_{\text{ref}}, \dim)}$ so wide tied vocabulary embeddings ($10000\times128$) are throttled ~9× without slowing down 128-wide layers.
-- **🛡️ Mistake Checkpoint Memory & State Fingerprinting:** captures compact 8–16 float weight/layer norm fingerprints before and during major gradient/loss spikes. Evaluates cosine and scalar similarity $S \in [0, 1]$ before steps, throttling dynamic LR gain to prevent recurrence.
+- **🛡️ Tri-Level Mistake Checkpoint Repulsion Engine:** 30-slot negative-memory FIFO queue that captures normalized triple-signatures (gradient direction, latent representation distribution, and weight fingerprint). Penalizes proximity to past failure states using a sub-linear square-rooted inverted difference barrier $\mathcal{P} = \sqrt{\max(0, S)}$:
+  - *Level A (Gradient Space - Every Step):* Orthogonalizes gradient updates away from bad gradient directions $\hat{g}_{\text{bad}}$.
+  - *Level B (Representation Space - Every Step):* Penalizes entropy collapse directly within token prediction logits.
+  - *Level C (Parameter Space - Every 10 Steps):* Applies gentle geometric parameter displacement away from divergence basins.
+- **📈 Dynamic LR Slew-Rate Limiter:** caps maximum single-step learning rate growth to $+10\%$ per step ($\text{LR}_{t+1} \le \text{LR}_t \times 1.10$), preventing runaway surge spikes during rapid loss drops.
 - **🌱 Soft Residual Scaling on Depth Growth:** when unlocking deeper transformer layers (4 $\to$ 6 $\to$ 8 $\to$ 10), newly activated block projections ($W_o, W_{\text{down}}$) are scaled by $0.10\times$ so new layers initially act as near-identity mappings without destabilizing converged representations.
+- **⏱️ Multi-Phase Recovery Cooldowns:** dedicated cooldown timers (`bad_batch_cooldown`, `depth_jump_cooldown`, `context_jump_cooldown`) apply temporary 40–50% LR damping following weight rollbacks or structural expansions to settle network activations.
 
 ### 7. 📡 Asynchronous Streaming & Chrono Engine (`Ring 3`)
 - **Background Data Streamer:** dedicated background worker thread ingests, tokenizes, and appends slices of large corpus files directly from disk into the active token buffer while forward/backward tensor passes execute without I/O stutter.
@@ -79,8 +85,8 @@ Getting cross-entropy loss to *start* low and *descend* without detonating, via 
 
 ## 📚 Complete Obsidian Knowledge Vault
 
-A full 29-document **Obsidian Knowledge Vault** is included in [`NeuralNet Obsidian/`](./NeuralNet%20Obsidian/):
-- **Overview & Architecture**: System map, Ring hierarchy, and 5-phase roadmap.
+A full 41-document **Obsidian Knowledge Vault** is included in [`NeuralNet Obsidian/`](./NeuralNet%20Obsidian/):
+- **Overview & Architecture**: Beginner roadmap, system map, Ring hierarchy, and 5-phase roadmap.
 - **Ring 0**: Tensor memory layouts, cache-blocked matrix multiplication, SIMD activations, CUDA engines, and the **Taylor Loss-Trajectory Predictor**.
 - **Ring 1**: Attention mechanics, recursive thought chains, meta-loss optimization, 4-formula weight physics, and **training-stability / fast-start descent** (bias init, trust region, dimension damping).
 - **Ring 2**: TransformerLM decoder, BPE subword tokenizer, and semantic VocabManager.

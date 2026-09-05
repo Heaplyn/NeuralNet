@@ -378,7 +378,134 @@ namespace ring2
             fp.push_back(blocks[i].attention.W_q.norm());
             fp.push_back(blocks[i].W_gate.norm());
         }
+        // Normalize to unit L2 norm for robust cosine distance
+        float sum_sq = 0.0f;
+        for (float v : fp)
+            sum_sq += v * v;
+        if (sum_sq > 1e-8f)
+        {
+            float inv_norm = 1.0f / sqrtf(sum_sq);
+            for (float &v : fp)
+                v *= inv_norm;
+        }
         return fp;
+    }
+
+    // Level A: Computes normalized unit gradient direction signature across active layers
+    std::vector<float> TransformerLM::compute_gradient_fingerprint() const
+    {
+        std::vector<float> g_fp;
+        g_fp.reserve(24);
+        g_fp.push_back(embedding.grad_token_weights.norm());
+        g_fp.push_back(grad_b_head.norm());
+        g_fp.push_back(grad_ln_f_gamma.norm());
+
+        size_t active_n = min(num_active_layers, blocks.size());
+        for (size_t i = 0; i < active_n && g_fp.size() < 22; ++i)
+        {
+            g_fp.push_back(blocks[i].attention.grad_W_q.norm());
+            g_fp.push_back(blocks[i].attention.grad_W_o.norm());
+            g_fp.push_back(blocks[i].grad_W_gate.norm());
+            g_fp.push_back(blocks[i].grad_W_down.norm());
+        }
+
+        // Normalize to unit L2 norm
+        float sum_sq = 0.0f;
+        for (float v : g_fp)
+            sum_sq += v * v;
+        if (sum_sq > 1e-8f)
+        {
+            float inv_norm = 1.0f / sqrtf(sum_sq);
+            for (float &v : g_fp)
+                v *= inv_norm;
+        }
+        return g_fp;
+    }
+
+    // Level B: Computes normalized latent/logit distribution signature across output predictions
+    std::vector<float> TransformerLM::compute_latent_fingerprint(const ring0::Matrix &logits) const
+    {
+        std::vector<float> l_fp(16, 0.0f);
+        if (logits.rows == 0 || logits.cols == 0)
+            return l_fp;
+
+        size_t N = logits.rows;
+        size_t V = logits.cols;
+        float mean_val = 0.0f;
+        float max_val = -1e9f;
+        float min_val = 1e9f;
+
+        // Sample across tokens
+        size_t stride = max(size_t(1), N / 32);
+        size_t sample_count = 0;
+
+        for (size_t r = 0; r < N; r += stride)
+        {
+            for (size_t c = 0; c < min(V, size_t(16)); ++c)
+            {
+                float z = logits(r, c);
+                l_fp[c] += z;
+                mean_val += z;
+                if (z > max_val)
+                    max_val = z;
+                if (z < min_val)
+                    min_val = z;
+            }
+            sample_count++;
+        }
+
+        if (sample_count > 0)
+        {
+            for (size_t c = 0; c < 16; ++c)
+            {
+                l_fp[c] /= static_cast<float>(sample_count);
+            }
+        }
+
+        // Normalize to unit L2 norm
+        float sum_sq = 0.0f;
+        for (float v : l_fp)
+            sum_sq += v * v;
+        if (sum_sq > 1e-8f)
+        {
+            float inv_norm = 1.0f / sqrtf(sum_sq);
+            for (float &v : l_fp)
+                v *= inv_norm;
+        }
+        return l_fp;
+    }
+
+    // Level C: Applies gentle geometric parameter repulsion away from a known mistake weight state
+    void TransformerLM::apply_parameter_repulsion(const std::vector<float> &bad_fingerprint, float force)
+    {
+        if (bad_fingerprint.empty() || force <= 0.0f)
+            return;
+
+        float clamped_force = std::clamp(force, 0.0001f, 0.05f);
+
+        // Repel the output head bias and layer norm scales slightly to steer away from the divergence basin
+        for (float &val : b_head.data)
+        {
+            val *= (1.0f - clamped_force * 0.1f);
+        }
+        for (float &val : ln_f_gamma.data)
+        {
+            val = (val - 1.0f) * (1.0f - clamped_force * 0.1f) + 1.0f;
+        }
+
+        // Lightly decay active block projections away from saturation
+        size_t active_n = min(num_active_layers, blocks.size());
+        for (size_t i = 0; i < active_n; ++i)
+        {
+            for (float &val : blocks[i].attention.W_o.data)
+            {
+                val *= (1.0f - clamped_force * 0.05f);
+            }
+            for (float &val : blocks[i].W_down.data)
+            {
+                val *= (1.0f - clamped_force * 0.05f);
+            }
+        }
     }
 
     // Forward pass for full context (Training phase with GQA + SwiGLU + Pre-RMSNorm)

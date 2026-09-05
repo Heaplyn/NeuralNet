@@ -75,6 +75,8 @@ namespace ring1
 
         float prev_loss = 0.0f;
         float prev_delta_loss = 0.0f;
+        float prev_delta_loss_for_meta = 0.0f;
+        float meta_step_scale = 1.0f;
         size_t step_count = 0;
         size_t update_stride = 4;      ///< Policy gradient step cadence (only update every N steps)
         float meta_lr = 0.006f;         ///< Slashed learning rate for smooth meta-policy updates

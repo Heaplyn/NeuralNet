@@ -132,42 +132,60 @@ namespace ring3
         float max_sim = 0.0f;
         for (const auto &m : mistake_memory)
         {
-            // 1. Fingerprint cosine similarity
-            float fp_sim = 0.0f;
+            // Level A: Gradient direction cosine similarity
+            float grad_sim = 0.0f;
+            if (!curr.grad_signature.empty() && curr.grad_signature.size() == m.grad_signature.size())
+            {
+                float dot = 0.0f;
+                for (size_t i = 0; i < curr.grad_signature.size(); ++i)
+                {
+                    dot += curr.grad_signature[i] * m.grad_signature[i];
+                }
+                grad_sim = max(0.0f, dot);
+            }
+
+            // Level B: Latent representation cosine similarity
+            float latent_sim = 0.0f;
+            if (!curr.latent_signature.empty() && curr.latent_signature.size() == m.latent_signature.size())
+            {
+                float dot = 0.0f;
+                for (size_t i = 0; i < curr.latent_signature.size(); ++i)
+                {
+                    dot += curr.latent_signature[i] * m.latent_signature[i];
+                }
+                latent_sim = max(0.0f, dot);
+            }
+
+            // Level C: Weight fingerprint cosine similarity
+            float weight_sim = 0.0f;
             if (!curr.fingerprint.empty() && curr.fingerprint.size() == m.fingerprint.size())
             {
-                float dot = 0.0f, n1 = 0.0f, n2 = 0.0f;
+                float dot = 0.0f;
                 for (size_t i = 0; i < curr.fingerprint.size(); ++i)
                 {
                     dot += curr.fingerprint[i] * m.fingerprint[i];
-                    n1 += curr.fingerprint[i] * curr.fingerprint[i];
-                    n2 += m.fingerprint[i] * m.fingerprint[i];
                 }
-                if (n1 > 1e-8f && n2 > 1e-8f)
-                {
-                    fp_sim = max(0.0f, dot / (sqrt(n1) * sqrt(n2)));
-                }
-            }
-            else
-            {
-                fp_sim = 0.5f;
+                weight_sim = max(0.0f, dot);
             }
 
-            // 2. Scalar state closeness (loss, grad_norm, penalty)
+            // Scalar state closeness (loss, grad_norm, penalty)
             float loss_diff = fabsf(curr.loss - m.loss) / max(1.0f, m.loss);
             float grad_diff = fabsf(curr.grad_norm - m.grad_norm) / max(0.1f, m.grad_norm);
             float scalar_closeness = expf(-1.5f * loss_diff - 0.8f * grad_diff);
 
-            // Combined similarity in [0, 1]
-            float sim = 0.65f * fp_sim + 0.35f * scalar_closeness;
-            if (sim > max_sim)
-                max_sim = sim;
+            // Combined multi-level similarity with square-rooted inverted difference metric
+            float raw_sim = 0.35f * grad_sim + 0.30f * latent_sim + 0.20f * weight_sim + 0.15f * scalar_closeness;
+            float repelled_sim = sqrtf(max(0.0f, min(1.0f, raw_sim)));
+
+            if (repelled_sim > max_sim)
+                max_sim = repelled_sim;
         }
         return max_sim;
     }
 
     // Records an unstable / bad checkpoint state into memory
-    void LLMTrainer::record_mistake(float loss, float ema_loss, float grad_norm, float penalty, float meta_scale, float gain, size_t step)
+    void LLMTrainer::record_mistake(float loss, float ema_loss, float grad_norm, float penalty, float meta_scale, float gain, size_t step,
+                                    const std::vector<float> &grad_sig, const std::vector<float> &latent_sig)
     {
         MistakeCheckpoint cp;
         cp.loss = loss;
@@ -178,6 +196,8 @@ namespace ring3
         cp.gain = gain;
         cp.step = step;
         cp.fingerprint = model.compute_lightweight_fingerprint();
+        cp.grad_signature = grad_sig.empty() ? model.compute_gradient_fingerprint() : grad_sig;
+        cp.latent_signature = latent_sig;
 
         mistake_memory.push_back(cp);
         if (mistake_memory.size() > MAX_MISTAKES)
@@ -426,6 +446,29 @@ namespace ring3
             }
         }
 
+        // --- Level B: Representation / Logit Space Repulsion ---
+        std::vector<float> latent_fp = model.compute_latent_fingerprint(logits);
+        float latent_repel_penalty = 0.0f;
+        if (config.enable_mistake_repulsion && !mistake_memory.empty())
+        {
+            for (const auto &m : mistake_memory)
+            {
+                if (!m.latent_signature.empty() && m.latent_signature.size() == latent_fp.size())
+                {
+                    float dot = 0.0f;
+                    for (size_t d = 0; d < latent_fp.size(); ++d)
+                    {
+                        dot += latent_fp[d] * m.latent_signature[d];
+                    }
+                    if (dot > 0.05f)
+                    {
+                        latent_repel_penalty += config.mistake_repel_lambda_latent * sqrtf(std::min(1.0f, dot));
+                    }
+                }
+            }
+        }
+        total_loss += latent_repel_penalty;
+
         // --- Build Multi-Order Loss Derivative Pyramid across iterations ---
         last_pyramid.build(token_losses, 4, 5.0f);
         float curvature_scale = last_pyramid.compute_curvature_scale();
@@ -455,8 +498,8 @@ namespace ring3
             float safe_loss = (std::isnan(avg_loss) || std::isinf(avg_loss)) ? 12.0f : min(avg_loss, 12.0f);
             ring0::Loss::record_loss(safe_loss);
 
-            // Record bad batch as a mistake checkpoint
-            record_mistake(safe_loss, ema_loss_short, 10.0f, optimizer.penalty_factor, 1.0f, dynamic_lr_gain, optimizer.timestep);
+            // Record bad batch as a mistake checkpoint with latent fingerprint
+            record_mistake(safe_loss, ema_loss_short, 10.0f, optimizer.penalty_factor, 1.0f, dynamic_lr_gain, optimizer.timestep, {}, latent_fp);
 
             return LLMStepMetrics{
                 optimizer.timestep, safe_loss, 999.0f, 0.0f, 0.0f, 0.0f,
@@ -507,10 +550,57 @@ namespace ring3
         float pre_clip_grad_norm = model.clip_grad_norm(clip_threshold);
         last_grad_norm = pre_clip_grad_norm;
 
+        // --- Level A: Gradient Direction Repulsion ---
+        std::vector<float> grad_fp = model.compute_gradient_fingerprint();
+        float grad_repel_damping = 1.0f;
+        if (config.enable_mistake_repulsion && !mistake_memory.empty())
+        {
+            for (const auto &m : mistake_memory)
+            {
+                if (!m.grad_signature.empty() && m.grad_signature.size() == grad_fp.size())
+                {
+                    float dot = 0.0f;
+                    for (size_t d = 0; d < grad_fp.size(); ++d)
+                    {
+                        dot += grad_fp[d] * m.grad_signature[d];
+                    }
+                    if (dot > 0.08f)
+                    {
+                        float p_a = sqrtf(std::min(1.0f, dot));
+                        grad_repel_damping = max(0.40f, grad_repel_damping - config.mistake_repel_lambda_grad * p_a);
+                    }
+                }
+            }
+        }
+        optimizer.config.curvature_scale *= grad_repel_damping;
+
         // Concept 5: Armijo-Goldstein condition check on step updates
         if (config.use_armijo_line_search && ema_initialized && avg_loss > (ema_loss_short + 0.35f))
         {
             optimizer.config.curvature_scale *= 0.5f;
+        }
+
+        // --- Level C: Geometric Parameter Space Repulsion (Evaluated every 10 steps) ---
+        if (config.enable_mistake_repulsion && (optimizer.timestep % config.weight_repel_step_interval == 0) && !mistake_memory.empty())
+        {
+            std::vector<float> current_weight_fp = model.compute_lightweight_fingerprint();
+            for (const auto &m : mistake_memory)
+            {
+                if (!m.fingerprint.empty() && m.fingerprint.size() == current_weight_fp.size())
+                {
+                    float dot = 0.0f;
+                    for (size_t d = 0; d < current_weight_fp.size(); ++d)
+                    {
+                        dot += current_weight_fp[d] * m.fingerprint[d];
+                    }
+                    if (dot > 0.50f)
+                    {
+                        float prox = (dot - 0.50f) / 0.50f;
+                        float p_c = sqrtf(std::min(1.0f, prox));
+                        model.apply_parameter_repulsion(m.fingerprint, config.mistake_repel_lambda_weight * p_c);
+                    }
+                }
+            }
         }
 
         // --- Mistake Checkpoint Memory: evaluate similarity to past mistake states ---
@@ -523,13 +613,15 @@ namespace ring3
         candidate.gain = dynamic_lr_gain;
         candidate.step = optimizer.timestep;
         candidate.fingerprint = model.compute_lightweight_fingerprint();
+        candidate.grad_signature = grad_fp;
+        candidate.latent_signature = latent_fp;
 
         float mistake_sim = compute_mistake_similarity(candidate);
 
         // Record a new mistake if gradient norm is extreme or loss spiked dramatically
         if (pre_clip_grad_norm > 3.0f || (ema_initialized && avg_loss > (ema_loss_short + 1.5f)))
         {
-            record_mistake(avg_loss, ema_loss_short, pre_clip_grad_norm, optimizer.penalty_factor, meta_out.loss_scale_multiplier, dynamic_lr_gain, optimizer.timestep);
+            record_mistake(avg_loss, ema_loss_short, pre_clip_grad_norm, optimizer.penalty_factor, meta_out.loss_scale_multiplier, dynamic_lr_gain, optimizer.timestep, grad_fp, latent_fp);
         }
 
         // 5. Optimizer Step (Multi-Formula Weight Physics + Nesterov + Fisher metric)
@@ -709,6 +801,14 @@ namespace ring3
             {
                 applied_lr *= watchdog_lr_penalty;
             }
+
+            // Slew-Rate Limiter: prevent single-step LR surge of > +10% during ramp-up
+            static float prev_applied_lr = 0.0f;
+            if (step > 1 && prev_applied_lr > 0.0f && applied_lr > (prev_applied_lr * config.max_lr_step_growth_ratio))
+            {
+                applied_lr = prev_applied_lr * config.max_lr_step_growth_ratio;
+            }
+            prev_applied_lr = applied_lr;
 
             applied_lr = std::clamp(applied_lr, config.min_learning_rate, config.learning_rate);
             optimizer.set_learning_rate(applied_lr);

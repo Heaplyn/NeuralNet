@@ -21,7 +21,7 @@ namespace ring3
 
     /**
      * @struct MistakeCheckpoint
-     * @brief Snapshot of system state and lightweight model fingerprint captured right before/during severe failure steps.
+     * @brief Snapshot of system state and triple-signature (gradient, latent, weight) captured during failure steps.
      */
     struct MistakeCheckpoint
     {
@@ -32,7 +32,9 @@ namespace ring3
         float meta_scale = 0.0f;
         float gain = 1.0f;
         size_t step = 0;
-        std::vector<float> fingerprint; ///< Compact model fingerprint (8-16 floats)
+        std::vector<float> fingerprint;      ///< Level C: Compact model weight fingerprint
+        std::vector<float> grad_signature;   ///< Level A: Normalized gradient direction signature
+        std::vector<float> latent_signature; ///< Level B: Normalized representation/logit distribution signature
     };
 
     /**
@@ -55,6 +57,14 @@ namespace ring3
         float loss_shrink_long_alpha = 0.01f;  ///< EMA alpha for long-window loss
         float loss_shrink_floor = 0.34f;       ///< Minimum LR multiplier
         size_t loss_shrink_warmup = 30;        ///< Skip shrink until this many steps have run
+        float max_lr_step_growth_ratio = 1.10f;///< Slew-rate limiter: max +10% LR increase per step
+
+        // --- Tri-Level Mistake Checkpoint Repulsion Engine ---
+        bool enable_mistake_repulsion = true;         ///< Repel optimization away from past mistake checkpoints
+        float mistake_repel_lambda_grad = 0.20f;      ///< Level A: Gradient direction repulsion strength (every step)
+        float mistake_repel_lambda_latent = 0.15f;    ///< Level B: Latent representation repulsion strength (every step)
+        float mistake_repel_lambda_weight = 0.05f;    ///< Level C: Parameter space barrier repulsion strength
+        size_t weight_repel_step_interval = 10;       ///< Level C evaluation cadence (every 10 steps)
 
         // --- Ablation baseline switch (Phase 0 of the stability plan) ---
         // When true, the trainer disables every experimental adaptive module so that
@@ -223,14 +233,15 @@ namespace ring3
         bool watchdog_active = false;
 
         // --- Mistake Checkpoint Memory & Fingerprinting ---
-        static constexpr size_t MAX_MISTAKES = 20;
+        static constexpr size_t MAX_MISTAKES = 30;
         std::deque<MistakeCheckpoint> mistake_memory;
 
         /// Computes similarity of current state to past mistake checkpoints in [0, 1]
         float compute_mistake_similarity(const MistakeCheckpoint &current_state) const;
 
-        /// Records a bad / unstable state into mistake memory
-        void record_mistake(float loss, float ema_loss, float grad_norm, float penalty, float meta_scale, float gain, size_t step);
+        /// Records a bad / unstable state into mistake memory with gradient, latent, and weight signatures
+        void record_mistake(float loss, float ema_loss, float grad_norm, float penalty, float meta_scale, float gain, size_t step,
+                            const std::vector<float> &grad_sig = {}, const std::vector<float> &latent_sig = {});
 
         // --- Directional Effect & Damped Operation Reversal State ---
         float last_lr_direction = 1.0f;    ///< Direction (+1.0 surge, -1.0 damp) of last LR modulation

@@ -1,4 +1,5 @@
 #include "ring1/meta_loss_optimizer.hpp"
+#include "ring0/config.hpp"
 #include <cmath>
 #include <iostream>
 #include <iomanip>
@@ -97,33 +98,40 @@ namespace ring1
 
         // Caches of the last forward pass (needed by the online policy-gradient update,
         // which reuses these activations instead of recomputing them).
-        last_input.assign(META_INPUT_DIM, 0.0f); // zero-init
-        last_h1.assign(32, 0.0f);                // cached hidden-layer-1 activations
-        last_h2.assign(16, 0.0f);                // cached hidden-layer-2 activations
-        last_output = MetaOptimizationOutput{1.0f, 0.0f, 1.0f, 1.0f};  // neutral init
+        last_input.assign(META_INPUT_DIM, 0.0f);                      // zero-init
+        last_h1.assign(32, 0.0f);                                     // cached hidden-layer-1 activations
+        last_h2.assign(16, 0.0f);                                     // cached hidden-layer-2 activations
+        last_output = MetaOptimizationOutput{1.0f, 0.0f, 1.0f, 1.0f}; // neutral init
         recent_loss_scales.clear();
 
         prev_loss = 0.0f;
         prev_delta_loss = 0.0f;
+        prev_delta_loss_for_meta = 0.0f;
+        meta_step_scale = 1.0f;
         step_count = 0;
-        update_stride = 4;                       // only update policy every 4 steps to avoid noise buildup
-        meta_lr = 0.005f;                        // slashed learning rate for smooth meta-policy updates
+        update_stride = 4; // only update policy every 4 steps to avoid noise buildup
+        meta_lr = 0.005f;  // slashed learning rate for smooth meta-policy updates
     }
 
     float MetaLossOptimizer::compute_output_variance() const
     {
-        if (recent_loss_scales.size() < 5) return 0.0f;
+        if (recent_loss_scales.size() < 5)
+            return 0.0f;
         float sum = 0.0f;
-        for (float v : recent_loss_scales) sum += v;
+        for (float v : recent_loss_scales)
+            sum += v;
         float mean = sum / static_cast<float>(recent_loss_scales.size());
         float sq_diff = 0.0f;
-        for (float v : recent_loss_scales) sq_diff += (v - mean) * (v - mean);
+        for (float v : recent_loss_scales)
+            sq_diff += (v - mean) * (v - mean);
         return sq_diff / static_cast<float>(recent_loss_scales.size());
     }
 
     bool MetaLossOptimizer::is_healthy() const
     {
-        return compute_output_variance() < 0.015f;
+        float var = compute_output_variance();
+        // Stricter than before
+        return var < 0.008f && meta_step_scale > 0.35f;
     }
 
     MetaOptimizationOutput MetaLossOptimizer::predict(const MetaLossTelemetry &telemetry)
@@ -214,9 +222,18 @@ namespace ring1
                 logits[j] = std::clamp(logits[j] + noise_amp * jitter(expl_rng), -30.0f, 30.0f);
             }
         }
+        float scale_lo = 0.88f;
+        float scale_hi = 1.18f;
 
+        if (telemetry.current_loss < 6.0f || meta_step_scale < 0.5f)
+        {
+            scale_lo = 0.92f;
+            scale_hi = 1.12f;
+        }
+
+        float raw_loss_scale = std::clamp(scale_lo + (scale_hi - scale_lo) * meta_sigmoid(logits[0]), scale_lo, scale_hi);
         // Hard-clamped tight ranges: prevent runaway multipliers from destabilizing training
-        float raw_loss_scale = std::clamp(0.85f + 0.40f * meta_sigmoid(logits[0]), 0.85f, 1.25f);
+        // float raw_loss_scale = std::clamp(0.85f + 0.40f * meta_sigmoid(logits[0]), 0.85f, 1.25f);
         float raw_focal = std::clamp(0.35f * meta_sigmoid(logits[1]), 0.0f, 0.35f);
         float raw_lr_mod = std::clamp(0.85f + 0.35f * meta_sigmoid(logits[2]), 0.85f, 1.20f);
         float raw_curv = std::clamp(0.80f + 0.40f * meta_sigmoid(logits[3]), 0.80f, 1.20f);
@@ -238,10 +255,12 @@ namespace ring1
         // Meta Health Monitor: if output variance spikes, pull outputs back toward neutral (1.0 / 0.0)
         if (!is_healthy())
         {
-            last_output.loss_scale_multiplier = 0.90f * last_output.loss_scale_multiplier + 0.10f * 1.0f;
-            last_output.dynamic_focal_gamma = 0.90f * last_output.dynamic_focal_gamma + 0.10f * 0.0f;
-            last_output.lr_step_modulator = 0.90f * last_output.lr_step_modulator + 0.10f * 1.0f;
-            last_output.curvature_scale = 0.90f * last_output.curvature_scale + 0.10f * 1.0f;
+            last_output.loss_scale_multiplier = 0.82f * last_output.loss_scale_multiplier + 0.18f * 1.0f;
+            last_output.dynamic_focal_gamma = 0.82f * last_output.dynamic_focal_gamma + 0.18f * 0.0f;
+            last_output.lr_step_modulator = 0.82f * last_output.lr_step_modulator + 0.18f * 1.0f;
+            last_output.curvature_scale = 0.82f * last_output.curvature_scale + 0.18f * 1.0f;
+
+            meta_step_scale *= 0.7f; // also decelerate learning
         }
 
         return last_output;
@@ -250,7 +269,7 @@ namespace ring1
     void MetaLossOptimizer::apply_policy_gradient(float reward)
     {
         // Clip reward to [-1.5, 1.5]
-        float grad_scale = std::max(-1.5f, std::min(1.5f, reward)) * meta_lr;
+        float grad_scale = std::max(-1.5f, std::min<float>(1.5f, reward)) * meta_lr * meta_step_scale;
 
         // Output heads W3 / b3  (16 -> 4): weight_{i,j} += grad_scale * h2_i
         for (size_t j = 0; j < 4; ++j)
@@ -309,7 +328,25 @@ namespace ring1
             prev_loss = current_loss;
             return;
         }
+        float current_delta = current_loss - prev_loss;
+        float predicted_future_delta = current_delta + 0.5f * (current_delta - prev_delta_loss_for_meta);
+        // How did the loss velocity change since last meta update?
+        float meta_effect = current_delta - prev_delta_loss_for_meta;
+        if (meta_effect > 0.02f)
+        {
+            meta_step_scale *= 0.65f; // strong deceleration
+        }
+        else if (meta_effect < -0.02f)
+        {
+            meta_step_scale = std::min<float>(1.0f, meta_step_scale * 1.08f); // slow recovery
+        }
+        else
+        {
+            meta_step_scale = std::min<float>(1.0f, meta_step_scale * 1.02f); // mild recovery
+        }
 
+        meta_step_scale = std::clamp(meta_step_scale, 0.12f, 1.0f);
+        prev_delta_loss_for_meta = current_delta;
         // Self-lowering upon bad loss: if loss rose, lower meta_lr and pull outputs towards neutral
         if (delta_loss > 0.01f)
         {

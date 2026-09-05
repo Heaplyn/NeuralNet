@@ -4,21 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "e0fa12e07911c26c",
+        "id": "795a2501d563cb72",
         "type": "tabs",
         "children": [
           {
-            "id": "6a312bce6cca5e88",
+            "id": "bfce69c0989637f6",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "Welcome.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "Welcome"
+              "title": "New tab"
             }
           }
         ]
@@ -99,7 +95,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "Welcome.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -118,7 +113,6 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "Welcome.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -161,7 +155,6 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "Welcome.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -188,15 +181,16 @@
       "bases:Create new base": false
     }
   },
-  "active": "6a312bce6cca5e88",
+  "active": "bfce69c0989637f6",
   "lastOpenFiles": [
+    "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
+    "Welcome.md",
     "03 - Ring 2 (Models, Vocabulary & Inference)/KV-Cache & Generation Inference.md",
     "00 - Overview & Architecture/Beginner Roadmap & Core Concepts.md",
     "01 - Ring 0 (Core Math & Hardware)/Loss Derivative Pyramid & Curvature Scaling.md",
     "05 - Theoretical Foundations & Physics/Calculus of Constructions & Dependent Types.md",
     "05 - Theoretical Foundations & Physics/Information Geometry & Loss Dynamics.md",
     "04 - Ring 3 (Data & Training Pipelines)/Mistake Checkpoint Memory & State Fingerprinting.md",
-    "Welcome.md",
     "03 - Ring 2 (Models, Vocabulary & Inference)",
     "Index.md",
     "01 - Ring 0 (Core Math & Hardware)/Activations (GELU, SwiGLU, RMSNorm).md",
@@ -206,7 +200,6 @@
     "04 - Ring 3 (Data & Training Pipelines)/Concurrent Chrono Subsystems Engine.md",
     "01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math.md",
     "01 - Ring 0 (Core Math & Hardware)/CUDA & Hardware Acceleration Engine.md",
-    "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
     "01 - Ring 0 (Core Math & Hardware)/Taylor Penalty Prediction & Confidence Gating.md.tmp.36356.642b18b076bf",
     "05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization.md.tmp.36356.3e19a1c0c06e",
     "02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi.md.tmp.36356.717c8977948e",
