@@ -75,6 +75,14 @@ if (config.enable_weight_rollback_recovery && avg_loss > config.bad_batch_loss_t
 }
 ```
 
+#### 🔍 Line-by-Line Beginner Breakdown:
+- `if (avg_loss <= config.safe_snapshot_loss_threshold)`: Checks if current training loss is healthy ($\le 9.0$). If so, creates an in-memory backup of all parameter weights.
+- `if (config.enable_weight_rollback_recovery && avg_loss > config.bad_batch_loss_threshold)`: If loss blows up ($>12.0$), triggers the recovery handler.
+- `model.restore_safe_snapshot()`: Copies the stored backup floats back into active weight matrices, erasing the damaged step.
+- `optimizer.reset_moments()`: Empties the AdamW $m_t$ and $v_t$ momentum arrays so the corrupted gradients don't persist into subsequent steps.
+- `optimizer.config.lr = std::max(...)`: Halves the learning rate with a hard safety floor ($0.00005$) to ensure the next step is cautious.
+- `continue;`: Skips the rest of the training loop for this step to process the next batch safely.
+
 ---
 
 ### 2. Directional Sign Tracking & Damped Operation Reversal (`Ring 1`)
@@ -95,6 +103,12 @@ if (loss_increased && config.enable_damped_reversal) {
 }
 ```
 
+#### 🔍 Line-by-Line Beginner Breakdown:
+- `bool loss_increased = (current_loss > prev_loss + 1e-5f);`: Compares current loss against previous loss with an epsilon tolerance ($10^{-5}$) to filter out floating-point noise.
+- `layer_lr_multipliers[layer_name] *= config.reversal_shrink_factor;`: Multiplies the layer's step size by $\approx 0.15\text{--}0.50$, forcing the optimizer to take a much smaller stride.
+- `layer_directions[layer_name] = -layer_directions[layer_name];`: Multiplies the update direction by $-1.0$, stepping backward away from the loss barrier.
+- `std::min(1.5f, layer_lr_multipliers[layer_name] * 1.05f);`: When loss is dropping cleanly, gently accelerates the step size by $+5\%$ per step, capped at a maximum $1.5\times$ boost.
+
 ---
 
 ### 3. Logit Soft-Capping via $\tanh$ (`Ring 2`)
@@ -108,6 +122,11 @@ for (float& val : logits.data) {
     val = cap * std::tanh(val / cap);
 }
 ```
+
+#### 🔍 Line-by-Line Beginner Breakdown:
+- `const float cap = 20.0f;`: Defines the asymptotic boundary. Hyperbolic tangent $\tanh(x)$ maps any real number to $[-1.0, 1.0]$, so multiplying by $20.0$ bounds values strictly within $(-20.0, +20.0)$.
+- `for (float& val : logits.data)`: A C++ range-based `for` loop. The `&` symbol ensures `val` is a direct reference to the float in RAM, so modifying `val` changes the actual logit in-place without allocating new memory.
+- `val = cap * std::tanh(val / cap);`: Compresses large outliers smoothly while leaving small values ($|z| \le 5.0$) almost completely unaltered ($\tanh(x) \approx x$ for small $x$).
 
 ---
 
@@ -126,6 +145,13 @@ void Matrix::sanitize_nan_inf(float replace_val, float clamp_min, float clamp_ma
     }
 }
 ```
+
+#### 🔍 Line-by-Line Beginner Breakdown:
+- `void Matrix::sanitize_nan_inf(...)`: A member function of the `Matrix` class that cleans up corrupted numerical floats.
+- `std::isnan(v)`: Standard library check returning `true` if float `v` is `NaN` (e.g. from $\frac{0}{0}$ or $\infty - \infty$).
+- `std::isinf(v)`: Standard library check returning `true` if float `v` is positive or negative infinity (e.g. from $\frac{1}{0}$ or $\log(0)$).
+- `v = replace_val;`: Overwrites the bad value with a safe default (typically $0.0f$).
+- `std::clamp(v, clamp_min, clamp_max)`: Ensures normal values do not exceed extreme upper or lower numerical bounds.
 
 ---
 
@@ -156,6 +182,13 @@ float TransformerLM::clip_grad_norm(float max_norm) {
 }
 ```
 
+#### 🔍 Line-by-Line Beginner Breakdown:
+- `float sum_sq = 0.0f;`: Accumulator variable to compute the global sum of squared gradient coordinates $\sum g_i^2$.
+- `for (auto* g : grads)`: Iterates through pointers to every gradient matrix in every transformer layer.
+- `if (std::isnan(v) || std::isinf(v)) v = 0.0f;`: Automatically purges any individual corrupt coordinate by zeroing it out before it can infect the sum.
+- `float total_norm = std::sqrt(sum_sq);`: Computes the global L2 Euclidean norm $\|g\|_2$.
+- `if (total_norm > max_norm)`: If the gradient vector is longer than the allowed threshold (`max_norm = 0.65`), computes a shrinkage scalar `scale = max_norm / total_norm` and multiplies every gradient coordinate by `scale`.
+
 ---
 
 ### 6. Dataset Horizon Expansion Cooldown (`Ring 3`)
@@ -169,6 +202,11 @@ if (dataset_expansion_cooldown > 0) {
     dataset_expansion_cooldown--;
 }
 ```
+
+#### 🔍 Line-by-Line Beginner Breakdown:
+- `if (dataset_expansion_cooldown > 0)`: Checks if a dataset expansion event recently unlocked new tokens.
+- `scheduled_lr *= config.dataset_expansion_lr_multiplier;`: Temporarily reduces the step size to $60\%$ ($0.60\times$) so the model absorbs new vocabulary tokens without taking erratic steps.
+- `dataset_expansion_cooldown--;`: Decrements the integer cooldown timer by 1 on each step until reaching zero.
 
 ---
 

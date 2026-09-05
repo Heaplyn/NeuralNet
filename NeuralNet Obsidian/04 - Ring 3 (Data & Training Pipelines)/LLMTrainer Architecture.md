@@ -128,7 +128,13 @@ LLMStepMetrics LLMTrainer::train_step(const TextBatch& batch, bool compute_detai
 }
 ```
 
----
+#### 🔍 Line-by-Line Beginner Breakdown of `train_step`:
+- `Matrix logits = model.forward(batch.input_ids);`: Runs the input token IDs through all transformer blocks to compute raw unnormalized vocabulary predictions.
+- `MetaOptimizationOutput meta_out = meta_loss_opt.predict(telemetry);`: Feeds real-time telemetry (loss derivatives, entropy, learning rate) into the online Meta-Loss network to receive adaptive scaling multipliers.
+- `#pragma omp parallel for reduction(...)`: An OpenMP multi-threaded parallel loop that computes Cross-Entropy and Top-1 / Top-20 prediction accuracy across all tokens in the batch simultaneously.
+- `model.backward(grad_logits);`: Backpropagates the loss gradients backwards from the output head down through all 10 layers using the mathematical chain rule.
+- `model.clip_grad_norm(config.max_grad_norm);`: Checks if the total gradient Euclidean length $\|g\|_2$ exceeds $0.65$; if so, scales all gradients down to prevent explosive updates.
+- `model.update_parameters(optimizer);`: Applies the chosen weight physics formula (Natural Grad, Nesterov, AdamW, or Sparse Decay) to every parameter tensor in the model.
 
 ---
 
@@ -154,7 +160,13 @@ optimizer.config.curvature_scale *= last_forecast.curvature_foresight;      // d
 meta_loss_opt.update_online(avg_loss, last_forecast.reward, /*foresight_weight=*/0.5f);
 ```
 
-See [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor]] for the forecast math and its ~dozen-flop cost.
+#### 🔍 Line-by-Line Beginner Breakdown of Foresight Hooks:
+- `loss_forecaster.observe(...)`: Fits an $n$-th order Taylor polynomial to recent loss values to estimate forward trajectory derivatives.
+- `telemetry.predicted_delta = last_forecast.pred_delta[0];`: The forecast loss change between step $t$ and step $t+1$.
+- `optimizer.penalty_factor += 0.10f * ...`: If the Taylor polynomial anticipates an upcoming upward loss surge, pre-emptively increases the penalty factor to brake the model before the spike occurs.
+- `meta_loss_opt.update_online(...)`: Trains the meta-policy network by rewarding it when it creates a smooth, downward multi-step path.
+
+---
 
 ## 🌱 Dynamic Neurogenesis: Two Triggers
 
@@ -175,6 +187,12 @@ if (f4_saturation_streak >= 100 && expansion_count < max_expansions) {
     f4_saturation_streak = 0;
 }
 ```
+
+#### 🔍 Line-by-Line Beginner Breakdown of Forced Neurogenesis:
+- `pct_f4() >= 85.0f`: Checks if $\ge 85\%$ of all weights in the network are currently routed to Formula 4 (noise pruning).
+- `f4_saturation_streak++`: Counts consecutive steps spent in this pruned saturation state.
+- `if (f4_saturation_streak >= 100)`: If the model remains starved of usable capacity for 100 consecutive steps, automatically triggers neurogenesis.
+- `model.expand_capacity(1.4);`: Enlarges hidden feature channels and embedding dimensions by $1.4\times$ ($+40\%$ more neurons) non-destructively, rescuing the network from plateau starvation.
 
 > **Intuition:** trigger #1 grows a model that's *winning*; trigger #2 rescues a model that's *stuck*. Together they keep the network from either starving on a plateau or freezing under its own pruning.
 

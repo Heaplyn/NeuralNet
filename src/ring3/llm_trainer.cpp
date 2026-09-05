@@ -486,16 +486,16 @@ namespace ring3
         float avg_loss = (total_loss + total_z_loss) * inv_N;
         
         // --- WEIGHT ROLLBACK & BAD BATCH RECOVERY ---
-        // If forward loss explodes above 12.0 or degenerates into NaN/Inf, immediately
-        // restore the last known healthy weights, flush poisoned moments, and halve LR.
-        bool bad_batch = (std::isnan(avg_loss) || std::isinf(avg_loss) || avg_loss > 12.0f);
+        // If forward loss explodes above 10.5 or degenerates into NaN/Inf, immediately
+        // restore the last known healthy weights, flush poisoned moments, and damp LR.
+        bool bad_batch = (std::isnan(avg_loss) || std::isinf(avg_loss) || avg_loss > 10.5f);
         if (bad_batch)
         {
             model.reset_gradients();
             bool restored = model.restore_safe_snapshot();
-            optimizer.reset();
-            dynamic_lr_gain = max(0.1f, dynamic_lr_gain * 0.5f);
-            float safe_loss = (std::isnan(avg_loss) || std::isinf(avg_loss)) ? 12.0f : min(avg_loss, 12.0f);
+            optimizer.soft_reset_moments(); // Clears m, v, f without resetting timestep (prevents bias-correction surges)
+            dynamic_lr_gain = 0.25f;       // Set safe low gain floor post-rollback
+            float safe_loss = (std::isnan(avg_loss) || std::isinf(avg_loss)) ? 10.5f : min(avg_loss, 10.5f);
             ring0::Loss::record_loss(safe_loss);
 
             // Record bad batch as a mistake checkpoint with latent fingerprint
@@ -949,8 +949,10 @@ namespace ring3
 
                     // Dynamic Learning Rate Directional Tracking & Damped Operation Reversal:
                     last_lr_loss_delta = loss_delta;
-                    // Staged dynamic LR floor: never crush below 0.60x on high loss (> 5.5) or 0.40x on mid loss
-                    float gain_floor = (metrics.loss > 5.5f) ? 0.60f : (metrics.loss > 3.5f ? 0.45f : 0.35f);
+                    // Staged dynamic LR floor: low during recovery cooldowns to prevent post-rollback rebound spikes
+                    float gain_floor = (bad_batch_cooldown > 0 || watchdog_recovery_cooldown > 0 || watchdog_active) 
+                                       ? 0.20f 
+                                       : ((metrics.loss > 5.5f) ? 0.60f : (metrics.loss > 3.5f ? 0.45f : 0.35f));
                     if (loss_delta > 0.01f)
                     {
                         // Last LR operation made loss HIGHER -> Reverse direction and gently shrink rather than halving

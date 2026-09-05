@@ -98,6 +98,16 @@ struct Matrix {
 };
 ```
 
+### 🔍 Line-by-Line Beginner Breakdown of Matrix:
+- `struct Matrix`: Defines a custom data structure in C++ named `Matrix`.
+- `size_t rows = 0; size_t cols = 0;`: Stores the dimensions (height and width) of the 2D grid. `size_t` is an unsigned integer used for memory sizes.
+- `std::vector<float> data`: The actual memory storage. Instead of creating a pointer-to-pointer array (`float**`), all matrix elements are stored in one long contiguous strip in RAM.
+- `inline float& operator()(size_t r, size_t c)`: Overloads the function call parentheses `()` so you can write `my_matrix(row, col)`.
+  - `inline`: Tells the compiler to replace the function call with the direct math formula at compile time, eliminating call overhead.
+  - `float&`: The `&` returns an assignable reference to the actual number in RAM (e.g. `my_matrix(2, 3) = 5.0f;`).
+- `return data[r * cols + c];`: The row-major offset formula. To reach row `r`, we skip `r` complete rows of length `cols`, then add `c` to reach the target column.
+- `inline const float& operator(...) const`: The read-only version used when a function receives a `const Matrix&` parameter (guarantees the matrix will not be modified).
+
 **Why this matters**:
 - Enables CPU SIMD auto-vectorization (AVX-512, AVX2, NEON).
 - Allows direct memory mapping to GPU device pointers (`cudaMemcpy`).

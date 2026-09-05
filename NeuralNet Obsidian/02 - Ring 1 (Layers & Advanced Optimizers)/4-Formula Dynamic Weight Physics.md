@@ -77,6 +77,14 @@ float MultiFormulaKernel::compute_importance(
 }
 ```
 
+#### 🔍 Line-by-Line Beginner Breakdown:
+- `float w, float g, float fisher`: The scalar weight value, its current gradient $\frac{\partial \mathcal{L}}{\partial w}$, and its trailing Fisher information score ($g^2$).
+- `float mean_energy = (norm_g * norm_w) / n_f + 1e-8f;`: Computes the expected average energy per weight across the entire tensor to use as a normalization baseline.
+- `float relative_salience = std::abs(g * w) / mean_energy;`: Taylor salience. Measures how much this specific weight contributes to loss compared to the average weight.
+- `float relative_fisher = std::sqrt(...)`: Compares this weight's curvature (variance) against the tensor's mean variance.
+- `raw_score = 0.6f * relative_salience + 0.4f * relative_fisher;`: Combines $60\%$ first-order impact with $40\%$ second-order Fisher curvature.
+- `return raw_score / (1.0f + raw_score);`: Sigmoid-like mapping $\frac{x}{1+x}$ ensuring the output is always cleanly bounded between $0.0$ and $1.0$.
+
 ---
 
 ### 2. The 4 Mathematical Update Formulas
@@ -170,6 +178,13 @@ float MultiFormulaKernel::execute_update_formula(
 }
 ```
 
+#### 🔍 Line-by-Line Beginner Breakdown:
+- `switch (formula)`: A C++ switch-case jumping directly to the execution block matching the routed enum type.
+- **Formula 1 Case**: Blends Fisher metric $\sqrt{f_{\text{hat}}}$ with gradient variance $\sqrt{v_{\text{hat}}}$ to compute a coordinate Natural Gradient step, while halving weight decay to protect critical knowledge.
+- **Formula 2 Case**: Computes Nesterov lookahead momentum and preconditions by `curvature_scale` (from the Rayleigh quotient).
+- **Formula 3 Case**: Clamps variance between $10^{-8}$ and $100.0$ (`std::clamp`) to prevent division by zero or underflows in standard AdamW.
+- **Formula 4 Case**: Low-importance noise weights receive half the gradient update ($0.5\times$) and double the weight decay ($2.0\times$) to accelerate sparse pruning.
+
 ---
 
 ### 3. OpenMP Threaded Dispatch Loop in `AdamW::update_param`
@@ -220,6 +235,12 @@ for (int i_idx = 0; i_idx < static_cast<int>(param.data.size()); ++i_idx) {
     param.data[i] -= delta_w;
 }
 ```
+
+#### 🔍 Line-by-Line Beginner Breakdown:
+- `#pragma omp parallel for`: An OpenMP directive telling the compiler to split the `for` loop iterations across all available CPU cores simultaneously.
+- `schedule(static)`: Evenly divides the array indices among worker threads upfront for zero synchronization overhead.
+- `reduction(+:local_f1, ...)`: Thread-safe accumulator combining the counts of F1–F4 formulas across all threads without race conditions.
+- `param.data[i] -= delta_w;`: Applies the computed update step to the active weight coordinate in RAM.
 
 ---
 

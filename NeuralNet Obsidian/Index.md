@@ -58,6 +58,7 @@ Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains docume
 - [[05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization|Multi-Order Empirical Loss Derivatives $\frac{d\mathcal{L}}{d\text{Pen}}$]]
 
 ### 📖 [[06 - Reference Dictionaries & Practical Guides/Master Practical Concepts & Real-World Analogies|06 - Reference Dictionaries & Practical Guides]]
+- [[06 - Reference Dictionaries & Practical Guides/Beginner Line-by-Line Code Annotation Guide|🧑‍💻 Beginner Line-by-Line Code Annotation Guide (12 Critical C++ Functions Explained)]]
 - [[06 - Reference Dictionaries & Practical Guides/Master Practical Concepts & Real-World Analogies|💡 Master Practical Concepts & Real-World Analogies (20 Core Concepts in Plain English)]]
 - [[06 - Reference Dictionaries & Practical Guides/Mathematical & Systems Variables Dictionary|📖 Mathematical & Systems Variables Dictionary (Every Symbol, Metric & Coordinate Explained)]]
 - [[06 - Reference Dictionaries & Practical Guides/Configuration Values Master Explainer|⚙️ Configuration Values Master Explainer (Field-by-Field Tuning Playbook)]]
@@ -76,7 +77,7 @@ graph TD
     R1 --> R2["Ring 2: TransformerLM Decoder, VocabManager & Tokenizer"]
     R2 --> R3["Ring 3: Text Datasets, Relevancy Parsing & LLMTrainer"]
     R3 --> R4["Ring 4: Interactive Real-Time Applications & Inference"]
-    R0 -.-> Ref["06: Dictionaries, Config Explainers & Troubleshooting Runbooks"]
+    R0 -.-> Ref["06: Dictionaries, Code Guides & Troubleshooting Runbooks"]
     R1 -.-> Ref
     R2 -.-> Ref
     R3 -.-> Ref

@@ -4,6 +4,21 @@ This guide provides a step-by-step mathematical and tensor dimension walkthrough
 
 ---
 
+## 💡 In Plain English
+
+Attention is the mechanism that lets each token look at every earlier token and decide *how much each one matters* for predicting what comes next. For every position, we compute three vectors — a **query** ("what am I looking for?"), a **key** ("what do I offer?"), and a **value** ("what's my payload?") — then score every (query, key) pair, softmax the scores, and use those scores as weights to average up the values.
+
+Three refinements the modern version adds:
+- **GQA** — instead of every head having its own K/V, groups of query heads share one K/V. Cuts memory ~4× at almost no quality cost.
+- **RoPE** — rotates the query and key vectors by an angle proportional to their position. Encodes *relative* position naturally into the dot product.
+- **ALiBi** — adds a linear "the farther apart, the smaller the score" bias so the model behaves sensibly on longer contexts than it was trained on.
+
+**Real-world analogy:** every token holds up a sign asking a question ("who's talking about food?"). Every earlier token holds up a matching sign ("I mentioned food"). The dot-product is the match strength; softmax picks who to listen to most; the value vectors are what those tokens actually say.
+
+---
+
+---
+
 ## 🧭 Pipeline Overview
 
 ```mermaid
@@ -136,3 +151,24 @@ $$\mathbf{x}_{\text{out}} = \mathbf{x}_{\text{mid}} + \text{SwiGLU}(\text{RMSNor
 | **ALiBi Falloff** | $(32, 8, 64, 64)$ | Geometric slopes | $(32, 8, 64, 64)$ | Enables context length extrapolation. |
 | **Output $W_o$** | $(32, 64, 256)$ | $(256, 256)$ | $(32, 64, 256)$ | Merges multi-head features into stream. |
 | **SwiGLU FFN** | $(32, 64, 256)$ | $(256, 512) \times 3$ | $(32, 64, 256)$ | Non-linear knowledge storage & retrieval. |
+
+---
+
+## 4. Common Beginner Confusions
+
+**"Why divide by √d in the score?"** — Without it, dot products of higher-dimensional vectors grow linearly with d, which pushes softmax toward one-hot (only the biggest score survives). The `1/√d` factor keeps the pre-softmax distribution reasonable so gradients flow to more than one key.
+
+**"How is GQA different from MQA?"** — MQA (Multi-Query Attention) is the extreme case: one K/V shared across every Q head. GQA is the interpolation: groups of Q heads share a K/V. In this project, 8 Q heads share 2 KV heads (4:1), matching LLaMA-2/3.
+
+**"Why RoPE *and* ALiBi?"** — RoPE encodes precise relative position via rotation; ALiBi adds a soft distance decay. They compose: RoPE gives the model the geometry, ALiBi gives it a length-generalization prior. Modern implementations sometimes pick one or the other; this engine keeps both for the extrapolation robustness.
+
+**"Where does the causal mask happen?"** — The engine skips computing scores for j > i entirely in the fused kernel, rather than filling those positions with `-inf` and letting softmax consume them. Cheaper *and* numerically cleaner.
+
+---
+
+## 🔗 Related Notes
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi|Attention Mechanics & ALiBi]] — primary implementation note in the main vault
+- [[01 - Ring 0 (Core Math & Hardware)/CUDA & Hardware Acceleration Engine|CUDA & Hardware Acceleration Engine]] — the fused attention kernel this walk-through corresponds to
+- [[03 - Ring 2 (Models & Transformers)/TransformerLM Decoder (GQA + SwiGLU + RoPE)|TransformerLM Decoder]] — the block that wraps attention + SwiGLU
+- [[03 - Ring 2 (Models & Transformers)/Autoregressive KV-Cache Generation|KV-Cache Generation]] — inference-time reuse of the K/V computed here
+- [[Index|Return to Master Index]]

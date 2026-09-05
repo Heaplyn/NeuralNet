@@ -170,6 +170,15 @@ MetaOptimizationOutput MetaLossOptimizer::predict(const MetaLossTelemetry& telem
 }
 ```
 
+#### 🔍 Line-by-Line Beginner Breakdown of `predict()`:
+- `last_input.resize(12);`: Allocates a 12-element vector to hold the normalized input telemetry and Taylor foresight signals.
+- `last_input[0] = std::tanh((current_loss - 3.0f) * 0.5f);`: Centers the loss around $3.0$ and squashes it into $[-1.0, 1.0]$ with hyperbolic tangent so large numbers don't saturate the MLP weights.
+- `last_h1.assign(32, 0.0f);`: Initializes the 32 hidden neurons of Layer 1 to zero.
+- `sum += last_input[i] * W1.data[i * 32 + j];`: Standard matrix multiplication dot product computing the weighted sum of inputs for neuron `j`.
+- `meta_gelu(std::clamp(sum, -30.0f, 30.0f));`: Applies GELU (Gaussian Error Linear Unit) non-linear activation after clamping the sum to $[-30, +30]$ to prevent numerical overflow.
+- `float raw_loss_scale = std::clamp(0.88f + 0.30f * meta_sigmoid(...), 0.88f, 1.18f);`: Maps the raw output logit into a strictly safe multiplier range $[0.88, 1.18]$ via Sigmoid.
+- `last_output.loss_scale_multiplier = (1-alpha)*old + alpha*new;`: Exponential Moving Average (EMA) smoothing that prevents the output multiplier from jittering erratically from one step to the next.
+
 ---
 
 ### 3. Strided Policy Gradient Adaptation Across All Layers
@@ -204,6 +213,12 @@ void MetaLossOptimizer::apply_policy_gradient(float reward) {
     }
 }
 ```
+
+#### 🔍 Line-by-Line Beginner Breakdown of `apply_policy_gradient()`:
+- `float grad_scale = std::max(-1.5f, std::min<float>(1.5f, reward)) * ...`: REINFORCE policy gradient scaling. Clamps the reward signal to $[-1.5, +1.5]$ so a single massive loss drop doesn't blow up the meta-network weights.
+- `b3.data[j] = std::clamp(b3.data[j] + grad_scale * 0.08f, -6.0f, 6.0f);`: Updates output bias vectors in the direction of positive reward.
+- `W3.data[i * 4 + j] = std::clamp(... + grad_scale * last_h2[i], -6.0f, 6.0f);`: Updates the weight connecting neuron `i` to output head `j` using the outer product of the reward and the stored hidden activation `last_h2[i]`.
+- Clamping all meta-weights strictly in $[-6.0, +6.0]$ ensures the meta-network itself can never suffer from exploding activations or numerical divergence.
 
 ---
 

@@ -127,6 +127,9 @@ namespace ring1
 
         /// Resets timestep and moment buffers
         void reset();
+
+        /// Clears moment buffers without resetting timestep (prevents bias-correction surges on rollback)
+        void soft_reset_moments();
     };
 
 } // namespace ring1

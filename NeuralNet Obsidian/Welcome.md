@@ -2,7 +2,7 @@
 
 This is the central knowledge base and engineering manual for the **RingWrapper Causal Transformer LLM** — a dependency-free, high-performance, from-scratch C++17 language model engine built around a strict 5-ring architectural hierarchy.
 
-This vault documents every mathematical formula, hardware layout, training dynamic, variable symbol, configuration parameter, and heuristic in the codebase. It is written with intellectual honesty: standard engineering is called standard engineering, and experimental heuristics are explained with their intended failure modes, stability guards, and fallback paths.
+This vault documents every mathematical formula, hardware layout, training dynamic, variable symbol, configuration parameter, and code snippet in the codebase. It is written with intellectual honesty: standard engineering is called standard engineering, and experimental heuristics are explained with their intended failure modes, stability guards, and fallback paths.
 
 ---
 
@@ -18,13 +18,13 @@ If you are trying to understand the system and feel overwhelmed by the moving pa
          ┌────────────────────────┬─────────────┴────────────┬────────────────────────┐
          ▼                        ▼                          ▼                        ▼
 ┌──────────────────┐    ┌───────────────────┐      ┌───────────────────┐    ┌───────────────────┐
-│ "Why did loss    │    │ "What are F1-F4   │      │ "What is the Meta │    │ "What do these    │
-│ climb or spike?" │    │ formulas doing?"  │      │ optimizer doing?" │    │ config knobs do?" │
+│ "Why did loss    │    │ "What is this C++ │      │ "What are F1-F4   │    │ "What do these    │
+│ climb or spike?" │    │ code doing?"      │      │ formulas doing?"  │    │ config knobs do?" │
 └────────┬─────────┘    └─────────┬─────────┘      └─────────┬─────────┘    └─────────┬─────────┘
          ▼                        ▼                          ▼                        ▼
-[[06 - Reference/       [[02 - Ring 1/             [[02 - Ring 1/           [[06 - Reference/
-Practical Guide:        4-Formula Dynamic          Meta-Neural Loss &       Configuration Values
-Why Overshoots Happen]] Weight Physics]]           Step Optimizer]]         Master Explainer]]
+[[06 - Reference/       [[06 - Reference/          [[02 - Ring 1/           [[06 - Reference/
+Practical Guide:        Beginner Line-by-Line      4-Formula Dynamic        Configuration Values
+Why Overshoots Happen]] Code Annotation Guide]]    Weight Physics]]         Master Explainer]]
 ```
 
 ---
@@ -35,6 +35,8 @@ Use this table if something unexpected is happening in the logs or during traini
 
 | Symptom or Question | What is happening | Where to read in depth |
 |---|---|---|
+| **"How does the C++ code actually work line-by-line?"** | 12 critical snippets annotated line-by-line with plain English beginner explanations. | [[06 - Reference Dictionaries & Practical Guides/Beginner Line-by-Line Code Annotation Guide\|Beginner Line-by-Line Code Annotation Guide]] |
+| **"What are the plain English analogies for all concepts?"** | 20 core neural network concepts translated into real-world analogies. | [[06 - Reference Dictionaries & Practical Guides/Master Practical Concepts & Real-World Analogies\|Master Practical Concepts & Real-World Analogies]] |
 | **"Why did loss spike or oscillate between 8 and 12?"** | Step size vs. parameter magnitude mismatch, Hessian curvature cliffs ($\lambda_{\max}$), or momentum buffer poisoning after a bad batch. | [[06 - Reference Dictionaries & Practical Guides/Practical Guide - Why Neural Nets Overshoot & How to Stabilize\|Practical Guide: Why Neural Networks Overshoot]] |
 | **"What does each config knob in `RuntimeConfig` do?"** | Exhaustive field-by-field breakdown with default values, allowed ranges, and failure symptoms if set too high or low. | [[06 - Reference Dictionaries & Practical Guides/Configuration Values Master Explainer\|Configuration Values Master Explainer]] |
 | **"What do all the mathematical symbols & variables mean?"** | Complete dictionary of every symbol ($\theta, g_t, m_t, v_t, S_A, S_B, S_C, \lambda_{\max}$, CoC sorts, etc.). | [[06 - Reference Dictionaries & Practical Guides/Mathematical & Systems Variables Dictionary\|Mathematical & Systems Variables Dictionary]] |
@@ -114,6 +116,8 @@ The codebase strictly prevents circular dependencies and architectural spaghetti
 - [[05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization|Multi-Order Loss Derivatives & Optimization]] — Empirical loss derivatives.
 
 ### 📖 Reference Dictionaries & Practical Guides
+- [[06 - Reference Dictionaries & Practical Guides/Beginner Line-by-Line Code Annotation Guide|Beginner Line-by-Line Code Annotation Guide]] — 12 critical C++ functions explained line-by-line for beginners.
+- [[06 - Reference Dictionaries & Practical Guides/Master Practical Concepts & Real-World Analogies|Master Practical Concepts & Real-World Analogies]] — 20 core concepts in plain English.
 - [[06 - Reference Dictionaries & Practical Guides/Mathematical & Systems Variables Dictionary|Mathematical & Systems Variables Dictionary]] — Exhaustive dictionary of every symbol, coordinate, and metric.
 - [[06 - Reference Dictionaries & Practical Guides/Configuration Values Master Explainer|Configuration Values Master Explainer]] — Complete guide to all config parameters, default values, and tuning symptoms.
 - [[06 - Reference Dictionaries & Practical Guides/Practical Guide - Why Neural Nets Overshoot & How to Stabilize|Practical Guide: Why Neural Networks Overshoot & How RingWrapper Stabilizes Them]] — Deep dive into loss curvature, momentum poisoning, and overshoot physics.

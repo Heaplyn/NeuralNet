@@ -28,6 +28,12 @@ namespace ring1
     void AdamW::reset()
     {
         timestep = 0;
+        soft_reset_moments();
+    }
+
+    // Clears moment buffers without resetting timestep (prevents bias-correction surges on rollback)
+    void AdamW::soft_reset_moments()
+    {
         for (auto &m : m_list)
             m = ring0::Matrix::zeros(m.rows, m.cols);
         for (auto &v : v_list)

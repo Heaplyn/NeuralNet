@@ -4,6 +4,16 @@ This guide details the Byte-Pair Encoding (BPE) subword tokenizer, semantic lexi
 
 ---
 
+## 💡 In Plain English
+
+Language models don't see letters or words — they see **token IDs**. A tokenizer's job is to slice text into chunks and hand each chunk a number. BPE (Byte-Pair Encoding) is a nice middle-ground: it starts with every raw byte as a token (so it can spell anything), then greedily merges the most-common pairs into bigger tokens ("t"+"h" → "th", eventually "the"). Common words end up as one token; rare words break into a few.
+
+**Dynamic expansion:** instead of picking a vocab size once and never changing it, the engine can grow the vocabulary *mid-training*. When a new merged token appears, its embedding is seeded by averaging the two parent embeddings plus a tiny noise term — so the new token starts with a *meaningful* prior instead of random garbage, which prevents the loss from spiking when the vocabulary suddenly grows.
+
+**Real-world analogy:** starting with a spelling alphabet and slowly promoting the most-common combinations into a shorthand dictionary — but every time you invent a shorthand, you write down "this shorthand means roughly what its two parts meant, plus a bit of my own idea" so you never forget what it stands for.
+
+---
+
 ## 🧭 Tokenizer & Vocabulary Pipeline
 
 ```mermaid
@@ -61,3 +71,20 @@ The `VocabManager` maintains semantic clusters in embedding space to assist with
 - **Semantic Clusters**: Nouns, verbs, descriptive tokens clustered by cosine similarity.
 
 These clusters allow the loss computation engine to evaluate semantic similarity penalties when computing focal loss weights.
+
+---
+
+## 4. Rebuild Cost & When Expansion Fires
+
+Expanding vocab is not free — the embedding matrix (V × d) and the tied LM-head projection (d × V) both have to be reallocated. On a 10k-vocab model at d=128 this is ~1.3M floats being copied, well under a millisecond. Expansion only fires at coarse milestones (step boundaries or when the trainer sees `on_param_expansion`), never per step, so the amortized cost is negligible.
+
+The engine can also fire an **expansion event** driven by the [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer]]'s forced-neurogenesis rule: if the [[02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics|4-formula optimizer]] routes ≥85% of parameters through the sparse pruning formula for 100 straight steps, capacity is injected — and vocab grows alongside via the same coupled path.
+
+---
+
+## 🔗 Related Notes
+- [[03 - Ring 2 (Models & Transformers)/BPE Tokenizer & Merging Engine|BPE Tokenizer & Merging Engine]] — the primary implementation note
+- [[03 - Ring 2 (Models & Transformers)/Dynamic Adaptive Vocabulary Sizing (10k Scaling)|Dynamic Adaptive Vocabulary Sizing]] — full growth policy
+- [[03 - Ring 2 (Models & Transformers)/Semantic VocabManager & Lexicon Clusters|Semantic VocabManager & Lexicon Clusters]] — the semantic clustering system used in Section 3
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent|Training Stability & Fast-Start Descent]] — log-unigram bias init interacts with vocab size
+- [[Index|Return to Master Index]]

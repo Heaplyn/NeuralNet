@@ -100,9 +100,6 @@ $$\text{SwiGLU}(\mathbf{x}) = (\mathbf{g} \odot \mathbf{u}) \mathbf{W}_{\text{do
 
 ## 💻 Deep Code Breakdown
 
-### 1. Logit Soft-Capping via $\tanh$
-Located in `src/ring2/transformer_lm.cpp`:
-
 ```cpp
 Matrix TransformerLM::forward(const Matrix& input_ids) {
     // ... Forward pass through embedding and transformer blocks ...
@@ -117,6 +114,12 @@ Matrix TransformerLM::forward(const Matrix& input_ids) {
     return logits;
 }
 ```
+
+#### 🔍 Line-by-Line Beginner Breakdown of `TransformerLM::forward`:
+- `Matrix logits = unpermute_head.forward(normed_out);`: Projects the final layer's hidden vectors from embedding space ($d_{\text{model}} = 128$) to the full vocabulary dimension ($|V| = 512$).
+- `const float cap = 20.0f;`: The soft-cap ceiling constant.
+- `for (float& val : logits.data)`: Iterates in-place over all $B \times T \times |V|$ logits in the contiguous float array.
+- `val = cap * std::tanh(val / cap);`: Binds extreme positive/negative values smoothly into $(-20, +20)$ to ensure Softmax doesn't produce `NaN` or overflow.
 
 ---
 
@@ -165,6 +168,16 @@ Matrix TransformerBlock::forward(const Matrix& x, size_t B, size_t T) {
     return out;
 }
 ```
+
+#### 🔍 Line-by-Line Beginner Breakdown of `TransformerBlock::forward`:
+- `attn_norm.forward(x)`: Pre-layer RMSNorm normalizing inputs before they enter multi-head attention.
+- `attn.forward(norm_attn, B, T)`: Executes Grouped-Query Attention across batch size `B` and sequence length `T`.
+- `x1.data[i] = x.data[i] + attn_out.data[i];`: **First Residual Addition ($x_1 = x + \text{Attn}$)**. Adding the input directly to the output allows gradients to flow uninterrupted backward through the network without vanishing.
+- `gate_proj.forward(norm_ffn)` and `up_proj.forward(norm_ffn)`: Two parallel linear matrix multiplications producing the gate and up tensors.
+- `float swish = g_val / (1.0f + exp(-g_val));`: Evaluates the non-linear SiLU/Swish curve on the gate.
+- `gated.data[i] = swish * up.data[i];`: Multiplies gate and content channels element-by-element ($\odot$).
+- `down_proj.forward(gated)`: Projects intermediate FFN channels back down to embedding dimension $d_{\text{model}}$.
+- `out.data[i] = x1.data[i] + ffn_out.data[i];`: **Second Residual Addition ($x_{\text{out}} = x_1 + \text{FFN}$)**. Merges knowledge features into the residual stream.
 
 ---
 

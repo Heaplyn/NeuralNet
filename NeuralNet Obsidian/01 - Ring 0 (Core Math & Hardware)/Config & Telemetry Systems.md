@@ -44,11 +44,14 @@ struct RuntimeConfig {
 };
 ```
 
-### Why it's a singleton and not a config struct
-The five rings need to consult these flags in places where threading a config object would be unfeasible — for example, the numerical stability guards in Ring 0 tensor operations want to know `debug_mode` so they can log when they clamp a NaN, without every callee taking a `RuntimeConfig&` parameter. Making it a singleton keeps the API surface clean at the cost of one global. Access is documented; mutation is intentionally restricted to `get_mutable_config()` so grep can find every write.
-
-### What is NOT in RuntimeConfig
-Anything model-shape or training-run specific (batch size, LR, layer count, safe-mode, warmup ratio, etc.) belongs to `TransformerConfig` or `LLMTrainingConfig`, not here. Rule of thumb: if it's the same for every run of this binary, it can be in `RuntimeConfig`; if it changes per invocation, it belongs to a per-run config.
+### 🔍 Line-by-Line Beginner Breakdown of RuntimeConfig:
+- `bool debug_mode = false;`: A Boolean flag (true/false) controlling whether extra debug metrics and console ASCII tables are printed.
+- `bool verbose_thought_chains = true;`: When enabled, prints the delta convergence numbers for every reflection cycle in recursive layers.
+- `size_t max_reflection_cycles = 3;`: An unsigned integer specifying the maximum number of multi-pass reasoning reflections allowed per recursive thought layer before passing forward.
+- `float thought_residual_momentum = 0.35f;`: A 32-bit floating point number (the `f` suffix denotes a single-precision float literal) damping the vector update across reflection cycles: $h_{\text{new}} = (1 - 0.35) h + 0.35 f(h)$.
+- `bool enable_loss_descent_acceleration = true;`: Toggles the adaptive focal gamma modulation when training encounters difficult loss plateaus.
+- `float plateau_breakout_loss = 2.0f;`: The loss floor threshold. Once cross-entropy loss falls below 2.0, the training dynamics switch into high-precision fine-tuning mode.
+- `float relevance_power_alpha = 1.3f;`: The non-linear exponent used to stretch context windows around rare, high-information tokens ($W(r) \propto r^\alpha$).
 
 ---
 
@@ -64,6 +67,14 @@ if (cfg.debug_mode) { /* extra diagnostics */ }
 // Write (should only happen from top-level app code):
 ring0::get_mutable_config().debug_mode = true;
 ```
+
+### 🔍 Line-by-Line Beginner Breakdown of Access Hooks:
+- `const auto& cfg`: 
+  - `const`: Guarantees this reference cannot modify the configuration.
+  - `auto`: C++ automatically deduces the type as `RuntimeConfig`.
+  - `&`: Creates an alias reference to the existing singleton object in RAM instead of allocating and copying memory.
+- `ring0::get_config()`: Calls the static getter in namespace `ring0` that returns the global `RuntimeConfig` instance.
+- `ring0::get_mutable_config().debug_mode = true;`: Retrieves the mutable reference to enable writing from top-level initialization routines.
 
 If you find yourself calling `get_mutable_config()` from inside a training step, that's usually a design smell — pass the value in as a parameter or fold it into the trainer's own state.
 
