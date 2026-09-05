@@ -74,36 +74,52 @@ Traditional deep learning relies on hand-crafted learning rate schedules and hop
 ### 📌 Overview & Architecture
 - [[00 - Overview & Architecture/Architecture Map|Architecture Map]] — Full system diagram and data flow.
 - [[00 - Overview & Architecture/Ring Dependency Hierarchy|Ring Dependency Hierarchy]] — Dependency rules and modular boundaries.
-- [[00 - Overview & Architecture/Roadmap & Vision|Roadmap & Vision]] — Evolutionary phases of the engine.
+- [[00 - Overview & Architecture/System Roadmap|Capabilities Roadmap]] — Evolutionary phases of the engine.
 
 ### ⚡ Ring 0 (Core Math & Hardware)
-- [[01 - Ring 0 (Core Math & Hardware)/Tensor Memory Layout & SIMD|Tensor Memory Layout & SIMD]] — Contiguous memory, cache blocking, and vectorization.
-- [[01 - Ring 0 (Core Math & Hardware)/Activations (GELU, SwiGLU, RMSNorm)|Activations & Normalization]] — Mathematical formulas and numerical stability.
-- [[01 - Ring 0 (Core Math & Hardware)/Loss Calculus & Derivative Pyramid|Loss Calculus & Derivative Pyramid]] — Multi-order loss derivatives.
-- [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor]] — Newton–Gregory loss foresight.
-- [[01 - Ring 0 (Core Math & Hardware)/CUDA & Hardware Engines|CUDA & Hardware Engines]] — Hardware acceleration kernels and OpenMP.
+- [[01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math|Tensor3D & Matrix Math]] — Contiguous memory, cache blocking, and vectorization.
+- [[01 - Ring 0 (Core Math & Hardware)/Activation Functions|Activation Functions (GELU, SwiGLU, RMSNorm, Softmax)]] — Mathematical formulas and numerical stability.
+- [[01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus|Loss Formulations & Calculus]] — Cross-entropy, Z-loss, and multi-order derivatives.
+- [[01 - Ring 0 (Core Math & Hardware)/Loss Derivative Pyramid & Curvature Scaling|Loss Derivative Pyramid & Curvature Scaling]] — Rayleigh quotient curvature preconditioning.
+- [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor]] — Newton–Gregory loss foresight and trajectory rewards.
+- [[01 - Ring 0 (Core Math & Hardware)/Taylor Penalty Prediction & Confidence Gating|Taylor Penalty Prediction & Confidence Gating]] — Loss penalization foresight.
+- [[01 - Ring 0 (Core Math & Hardware)/Calculus of Constructions & Dependent-Typed Neural Reasoning|Calculus of Constructions & Dependent-Typed Neural Reasoning]] — Dependent type checking engine.
+- [[01 - Ring 0 (Core Math & Hardware)/CUDA & Hardware Acceleration Engine|CUDA & Hardware Acceleration Engine]] — Hardware acceleration kernels and OpenMP fallback.
+- [[01 - Ring 0 (Core Math & Hardware)/Numerical Stability & NaN Prevention Physics|Numerical Stability & NaN Prevention Physics]] — Logit soft-capping and gradient sanitization.
+- [[01 - Ring 0 (Core Math & Hardware)/Config & Telemetry Systems|Config & Telemetry Systems]] — Global runtime configuration and telemetry hooks.
 
 ### 🔬 Ring 1 (Layers & Advanced Optimizers)
-- [[02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi|Attention Mechanics & ALiBi]] — Multi-head, GQA, ALiBi, and RoPE.
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi|Attention Mechanics & ALiBi]] — Multi-head, Grouped-Query Attention (GQA), ALiBi falloff, and RoPE.
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics|4-Formula Dynamic Weight Physics]] — Riemannian Natural Grad, Nesterov, AdamW, and Sparse Decay.
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer|Meta-Neural Loss & Step Optimizer]] — Online meta-learning policy network.
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov|AdamW, Fisher Metric & Nesterov]] — Moment updates and empirical Fisher information.
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent|Training Stability & Fast-Start Descent]] — Unigram bias init, trust regions, and dimension damping.
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer|Hierarchical Recursive Thought Layer]] — Deliberative cognitive reflection trees.
 
-### 🏛️ Ring 2 (Models, Vocabulary & Inference)
-- [[03 - Ring 2 (Models, Vocabulary & Inference)/TransformerLM Decoder Architecture|TransformerLM Decoder Architecture]] — Full causal decoder pipeline.
-- [[03 - Ring 2 (Models, Vocabulary & Inference)/BPE Tokenizer & Semantic VocabManager|BPE Tokenizer & Semantic VocabManager]] — Subword tokenization and concept clustering.
-- [[03 - Ring 2 (Models, Vocabulary & Inference)/KV-Cache & Generation Inference|KV-Cache & Generation Inference]] — Fast streaming token generation.
+### 🏛️ Ring 2 (Models & Transformers)
+- [[03 - Ring 2 (Models & Transformers)/TransformerLM Decoder (GQA + SwiGLU + RoPE)|TransformerLM Decoder]] — Full 10-layer causal transformer decoder pipeline.
+- [[03 - Ring 2 (Models & Transformers)/BPE Tokenizer & Merging Engine|BPE Tokenizer & Merging Engine]] — Byte-pair encoding and merge table rules.
+- [[03 - Ring 2 (Models & Transformers)/Semantic VocabManager & Lexicon Clusters|Semantic VocabManager & Lexicon Clusters]] — Semantic concept clusters and neurogenesis.
+- [[03 - Ring 2 (Models & Transformers)/Dynamic Adaptive Vocabulary Sizing (10k Scaling)|Dynamic Adaptive Vocabulary Sizing (10k Scaling)]] — Progressive vocabulary expansion.
+- [[03 - Ring 2 (Models & Transformers)/Autoregressive KV-Cache Generation|Autoregressive KV-Cache Generation]] — O(1) streaming generation inference.
 
 ### 📦 Ring 3 (Data & Training Pipelines)
-- [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Architecture]] — Optimization loop, chrono engines, mistake memory, and telemetry dashboard.
+- [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Architecture]] — Optimization loop, dynamic schedules, and telemetry dashboard.
+- [[04 - Ring 3 (Data & Training Pipelines)/Mistake Checkpoint Memory & State Fingerprinting|Mistake Checkpoint Memory & State Fingerprinting]] — Episodic failure memory and similarity throttling.
+- [[04 - Ring 3 (Data & Training Pipelines)/Concurrent Chrono Subsystems Engine|Concurrent Chrono Subsystems Engine]] — 5 concurrent background subsystem threads.
+- [[04 - Ring 3 (Data & Training Pipelines)/Universal Data Ingestion (CSV, TXT, BIN)|Universal Data Ingestion & Background Streaming]] — Non-blocking data streaming from disk.
+- [[04 - Ring 3 (Data & Training Pipelines)/Token Relevancy & Interpolated Parsing|Token Relevancy & Interpolated Parsing]] — Information entropy and non-linear parsing radius.
+- [[04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth|Progressive Curriculum & Horizon Growth]] — Context length, dataset ratio, and depth ramp schedules.
+- [[04 - Ring 3 (Data & Training Pipelines)/Real-Time Benchmark & Telemetry Dashboard|Real-Time Benchmark & Telemetry Dashboard]] — Live visual dashboard formatting.
 - [[04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide|Debug Log Format & Reading Guide]] — Per-step diagnostic log anatomy.
-- [[04 - Ring 3 (Data & Training Pipelines)/Curriculum & Horizon Expansion|Curriculum & Horizon Expansion]] — Context length, dataset ratio, and depth expansion schedules.
+- [[04 - Ring 3 (Data & Training Pipelines)/Evaluation & Checkpoint Lifecycle|Evaluation & Checkpoint Lifecycle]] — Loss evaluation and checkpoint bundle saving.
 
 ### 📐 Theoretical Foundations & Physics
-- [[05 - Theoretical Foundations & Physics/Information Geometry & Loss Dynamics|Information Geometry & Loss Dynamics]] — Curvature manifolds and loss topology.
-- [[05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information|Riemannian Manifolds & Fisher Information]] — Mathematical foundations of Fisher natural gradients.
+- [[05 - Theoretical Foundations & Physics/Information Geometry & Loss Dynamics|Information Geometry & Loss Dynamics]] — Riemannian manifolds, Fisher metrics, and loss topologies.
+- [[05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information|Riemannian Manifolds & Fisher Information]] — Natural gradient derivations.
+- [[05 - Theoretical Foundations & Physics/Adaptive Focal Loss Theory|Adaptive Focal Loss Theory]] — Mathematical proofs for plateau breakout.
 - [[05 - Theoretical Foundations & Physics/Calculus of Constructions & Dependent Types|Calculus of Constructions & Dependent Types]] — Formal proof consistency in attention heads.
+- [[05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization|Multi-Order Loss Derivatives & Optimization]] — Empirical loss derivatives.
 
 ---
 

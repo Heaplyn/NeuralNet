@@ -7,14 +7,16 @@ Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains docume
 ## 🗺️ Master Navigation & Vault Index
 
 ### 📌 [[00 - Overview & Architecture/Architecture Map|00 - Overview & Architecture]]
+- [[00 - Overview & Architecture/Beginner Roadmap & Core Concepts|Beginner Roadmap & Core Concepts (Prerequisites · Roadmaps · Analogies)]]
 - [[00 - Overview & Architecture/Architecture Map|Architecture Map & System Overview]]
 - [[00 - Overview & Architecture/Ring Dependency Hierarchy|Strict Ring Dependency Hierarchy (Ring 0 -> Ring 4)]]
 - [[00 - Overview & Architecture/System Roadmap|Capabilities Roadmap]]
 
 ### ⚡ [[01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math|01 - Ring 0 (Core Math & Hardware)]]
 - [[01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math|Tensor3D, Matrix & Block Cache Multiplication]]
-- [[01 - Ring 0 (Core Math & Hardware)/Activation Functions|Activation Functions (GELU, SwiGLU, Softmax, Sigmoid)]]
+- [[01 - Ring 0 (Core Math & Hardware)/Activation Functions|Activation Functions (GELU, SwiGLU, Softmax, Sigmoid, Tanh)]]
 - [[01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus|Loss Formulations, Scale Multipliers & Derivatives]]
+- [[01 - Ring 0 (Core Math & Hardware)/Loss Derivative Pyramid & Curvature Scaling|Loss Derivative Pyramid & Rayleigh Curvature Preconditioning]]
 - [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor (nth-Order Foresight & Trajectory Reward)]]
 - [[01 - Ring 0 (Core Math & Hardware)/Taylor Penalty Prediction & Confidence Gating|Taylor Penalty Prediction & Multi-Factor Confidence Gating]]
 - [[01 - Ring 0 (Core Math & Hardware)/Calculus of Constructions & Dependent-Typed Neural Reasoning|Calculus of Constructions (CoC) & Dependent-Typed Reasoning]]
@@ -38,18 +40,21 @@ Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains docume
 - [[03 - Ring 2 (Models & Transformers)/Autoregressive KV-Cache Generation|Autoregressive KV-Cached O(1) Streaming Generation]]
 
 ### 🚀 [[04 - Ring 3 (Data & Training Pipelines)/Token Relevancy & Interpolated Parsing|04 - Ring 3 (Data & Training Pipelines)]]
+- [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Optimization Loop & Dynamic Schedules]]
+- [[04 - Ring 3 (Data & Training Pipelines)/Mistake Checkpoint Memory & State Fingerprinting|Mistake Checkpoint Memory & State Fingerprinting]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Concurrent Chrono Subsystems Engine|Concurrent Chrono Subsystems Engine (Multi-Threaded Co-Pilots)]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Universal Data Ingestion (CSV, TXT, BIN)|Universal Multi-Format Data Ingestion & Background Streaming (CSV, TXT, BIN)]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Real-Time Benchmark & Telemetry Dashboard|Real-Time Benchmark & Telemetry Dashboard]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Token Relevancy & Interpolated Parsing|Token Relevancy & Non-Linear Interpolated Context Parsing]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth|Progressive Curriculum, Horizon Growth & Fast-Track Depth]]
-- [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Optimization Loop & Dynamic Schedules]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Evaluation & Checkpoint Lifecycle|Evaluation Metrics & Multi-File Checkpoint Lifecycle]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide|Debug Log Format & Reading Guide (per-step 11-line block)]]
 
 ### 📚 [[05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information|05 - Theoretical Foundations & Physics]]
+- [[05 - Theoretical Foundations & Physics/Information Geometry & Loss Dynamics|Information Geometry & Loss Dynamics]]
 - [[05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information|Riemannian Manifolds, Natural Gradients & Information Geometry]]
 - [[05 - Theoretical Foundations & Physics/Adaptive Focal Loss Theory|Adaptive Focal Loss & Plateau Breakout Mathematics]]
+- [[05 - Theoretical Foundations & Physics/Calculus of Constructions & Dependent Types|Calculus of Constructions & Dependent-Typed Attention]]
 - [[05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization|Multi-Order Empirical Loss Derivatives $\frac{d\mathcal{L}}{d\text{Pen}}$]]
 
 ---

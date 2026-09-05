@@ -4,11 +4,11 @@
     "type": "split",
     "children": [
       {
-        "id": "060bfec480569f25",
+        "id": "e0fa12e07911c26c",
         "type": "tabs",
         "children": [
           {
-            "id": "090880940288195b",
+            "id": "6a312bce6cca5e88",
             "type": "leaf",
             "state": {
               "type": "markdown",
@@ -188,8 +188,18 @@
       "bases:Create new base": false
     }
   },
-  "active": "090880940288195b",
+  "active": "6a312bce6cca5e88",
   "lastOpenFiles": [
+    "03 - Ring 2 (Models, Vocabulary & Inference)/KV-Cache & Generation Inference.md",
+    "00 - Overview & Architecture/Beginner Roadmap & Core Concepts.md",
+    "01 - Ring 0 (Core Math & Hardware)/Loss Derivative Pyramid & Curvature Scaling.md",
+    "05 - Theoretical Foundations & Physics/Calculus of Constructions & Dependent Types.md",
+    "05 - Theoretical Foundations & Physics/Information Geometry & Loss Dynamics.md",
+    "04 - Ring 3 (Data & Training Pipelines)/Mistake Checkpoint Memory & State Fingerprinting.md",
+    "Welcome.md",
+    "03 - Ring 2 (Models, Vocabulary & Inference)",
+    "Index.md",
+    "01 - Ring 0 (Core Math & Hardware)/Activations (GELU, SwiGLU, RMSNorm).md",
     "00 - Overview & Architecture/System Roadmap.md",
     "00 - Overview & Architecture/Ring Dependency Hierarchy.md",
     "04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth.md",
@@ -213,18 +223,8 @@
     "01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus.md",
     "05 - Theoretical Foundations & Physics/Adaptive Focal Loss Theory.md",
     "01 - Ring 0 (Core Math & Hardware)/Calculus of Constructions & Dependent-Typed Neural Reasoning.md",
-    "01 - Ring 0 (Core Math & Hardware)/Taylor Penalty Prediction & Confidence Gating.md",
     "02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov.md.tmp.20512.e015cd96e9d6",
     "02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent.md.tmp.20512.05fde7146050",
-    "02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent.md",
-    "Index.md.tmp.20512.c4466ad92f14",
-    "01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor.md",
-    "04 - Ring 3 (Data & Training Pipelines)/Real-Time Benchmark & Telemetry Dashboard.md",
-    "03 - Ring 2 (Models & Transformers)/Dynamic Adaptive Vocabulary Sizing (10k Scaling).md",
-    "04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture.md",
-    "04 - Ring 3 (Data & Training Pipelines)/Evaluation & Checkpoint Lifecycle.md",
-    "04 - Ring 3 (Data & Training Pipelines)/Universal Data Ingestion (CSV, TXT, BIN).md",
-    "03 - Ring 2 (Models & Transformers)/Autoregressive KV-Cache Generation.md",
-    "05 - Theoretical Foundations & Physics"
+    "Index.md.tmp.20512.c4466ad92f14"
   ]
 }
