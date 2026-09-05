@@ -350,6 +350,22 @@ Matrix Matrix::sum_cols() const {
     return res;
 }
 
+// Frobenius / L2 Euclidean norm squared
+float Matrix::norm_squared() const {
+    float sum_sq = 0.0f;
+    for (float v : data) {
+        if (!std::isnan(v) && !std::isinf(v)) {
+            sum_sq += v * v;
+        }
+    }
+    return sum_sq;
+}
+
+// Frobenius / L2 Euclidean norm
+float Matrix::norm() const {
+    return std::sqrt(norm_squared());
+}
+
 // Applies unary lambda/function to each element
 Matrix Matrix::map(const function<float(float)>& func) const {
     Matrix res(rows, cols);

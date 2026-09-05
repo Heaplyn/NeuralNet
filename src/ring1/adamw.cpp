@@ -1,5 +1,6 @@
 #include "ring1/adamw.hpp"
 #include "ring0/loss.hpp"
+#include "ring0/config.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -390,18 +391,26 @@ namespace ring1
                 // decay/pruning. (See multi_formula_optimizer.cpp for each formula.)
                 float importance = MultiFormulaKernel::compute_importance(w, g, f_hat, norm_g, norm_w, num_elems);
 
+                float f1_thresh = ring0::get_config().f1_natural_gradient_threshold;
+                float f2_thresh = ring0::get_config().f2_nesterov_threshold;
+                float f3_thresh = ring0::get_config().f3_adamw_threshold;
+
+                // Soft minimum allocation guarantee: ensure at least ~10-14% combined F1/F2 exploratory flow
+                bool soft_f1_probe = (i_idx % 20 == 0); // 5.0% baseline allocation for F1
+                bool soft_f2_probe = (i_idx % 14 == 0); // 7.1% baseline allocation for F2
+
                 WeightFormulaType formula;
-                if (importance > 0.65f)
+                if (importance > f1_thresh || (soft_f1_probe && importance > 0.15f))
                 {
                     formula = WeightFormulaType::FORMULA_1_GEODESIC_NATURAL_GRAD;
                     local_f1++;
                 }
-                else if (importance > 0.40f)
+                else if (importance > f2_thresh || (soft_f2_probe && importance > 0.10f))
                 {
                     formula = WeightFormulaType::FORMULA_2_CURVATURE_NESTEROV;
                     local_f2++;
                 }
-                else if (importance > 0.10f || last_loss_observed > 3.0f)
+                else if (importance > f3_thresh || last_loss_observed > 2.5f)
                 {
                     formula = WeightFormulaType::FORMULA_3_VARIANCE_BOUNDED_ADAMW;
                     local_f3++;

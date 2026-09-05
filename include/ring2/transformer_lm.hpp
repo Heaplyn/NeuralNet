@@ -128,8 +128,11 @@ namespace ring2
 
         size_t num_active_layers = 10; ///< Number of currently active blocks for progressive depth ramping
 
-        /// Dynamically adjusts the number of active layers (progressive depth ramping)
+        /// Dynamically adjusts the number of active layers (progressive depth ramping with soft residual scaling)
         void set_active_layers(size_t active_layers);
+
+        /// Computes a fast, compact fingerprint of model state (norms of key matrices) for mistake detection
+        std::vector<float> compute_lightweight_fingerprint() const;
 
         /**
          * @brief Seeds the LM-head output bias with the log-unigram token frequencies.

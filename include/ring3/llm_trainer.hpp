@@ -12,11 +12,28 @@
 #include "ring1/meta_loss_optimizer.hpp"
 #include "ring3/text_dataset.hpp"
 #include <functional>
+#include <deque>
 
 using namespace std;
 
 namespace ring3
 {
+
+    /**
+     * @struct MistakeCheckpoint
+     * @brief Snapshot of system state and lightweight model fingerprint captured right before/during severe failure steps.
+     */
+    struct MistakeCheckpoint
+    {
+        float loss = 0.0f;
+        float ema_loss = 0.0f;
+        float grad_norm = 0.0f;
+        float penalty = 0.0f;
+        float meta_scale = 0.0f;
+        float gain = 1.0f;
+        size_t step = 0;
+        std::vector<float> fingerprint; ///< Compact model fingerprint (8-16 floats)
+    };
 
     /**
      * @struct LLMTrainingConfig
@@ -105,6 +122,8 @@ namespace ring3
         bool bad_batch_skipped = false; ///< True if loss > 15.0 caused batch update skip
         float coc_proof_score = 1.0f;   ///< CoC proof consistency score in [0, 1]
         bool coc_verified = true;       ///< True if CoC type check passed
+        float mistake_similarity = 0.0f; ///< Max similarity to past bad mistake checkpoints in [0, 1]
+        size_t mistake_count = 0;       ///< Number of recorded mistake checkpoints
     };
 
     /**
@@ -129,6 +148,8 @@ namespace ring3
         float taylor_penalty_conf = 0.0f;
         float taylor_penalty_pred = 0.0f;
         float coc_proof_consistency = 1.0f;
+        float mistake_similarity = 0.0f;
+        size_t mistake_count = 0;
         size_t active_vocab_size = 0;
         size_t active_context_length = 0;
         size_t active_model_layers = 0;
@@ -200,6 +221,16 @@ namespace ring3
         float watchdog_recover_gap = 0.5f;       ///< current <= baseline + this = fully recovered
         float watchdog_lr_penalty = 0.25f;       ///< LR *= this while watchdog is active
         bool watchdog_active = false;
+
+        // --- Mistake Checkpoint Memory & Fingerprinting ---
+        static constexpr size_t MAX_MISTAKES = 20;
+        std::deque<MistakeCheckpoint> mistake_memory;
+
+        /// Computes similarity of current state to past mistake checkpoints in [0, 1]
+        float compute_mistake_similarity(const MistakeCheckpoint &current_state) const;
+
+        /// Records a bad / unstable state into mistake memory
+        void record_mistake(float loss, float ema_loss, float grad_norm, float penalty, float meta_scale, float gain, size_t step);
 
         // --- Directional Effect & Damped Operation Reversal State ---
         float last_lr_direction = 1.0f;    ///< Direction (+1.0 surge, -1.0 damp) of last LR modulation

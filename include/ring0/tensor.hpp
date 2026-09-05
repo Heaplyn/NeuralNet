@@ -97,6 +97,8 @@ public:
     Matrix add_bias(const Matrix& bias_row_or_col) const; ///< Broadcasts (1 x cols) bias to all rows
     Matrix sum_rows() const;                              ///< Sums across rows -> (1 x cols)
     Matrix sum_cols() const;                              ///< Sums across columns -> (rows x 1)
+    float norm() const;                                   ///< Frobenius / L2 Euclidean norm
+    float norm_squared() const;                           ///< Sum of squared elements
 
     // --- Functional Mapping & Normalization ---
     Matrix map(const function<float(float)>& func) const; ///< Element-wise function mapping

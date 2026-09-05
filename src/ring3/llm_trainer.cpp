@@ -123,6 +123,70 @@ namespace ring3
         return max(config.loss_shrink_floor, min(1.0f, shrink));
     }
 
+    // Computes similarity of current candidate state against stored mistake checkpoints
+    float LLMTrainer::compute_mistake_similarity(const MistakeCheckpoint &curr) const
+    {
+        if (mistake_memory.empty())
+            return 0.0f;
+
+        float max_sim = 0.0f;
+        for (const auto &m : mistake_memory)
+        {
+            // 1. Fingerprint cosine similarity
+            float fp_sim = 0.0f;
+            if (!curr.fingerprint.empty() && curr.fingerprint.size() == m.fingerprint.size())
+            {
+                float dot = 0.0f, n1 = 0.0f, n2 = 0.0f;
+                for (size_t i = 0; i < curr.fingerprint.size(); ++i)
+                {
+                    dot += curr.fingerprint[i] * m.fingerprint[i];
+                    n1 += curr.fingerprint[i] * curr.fingerprint[i];
+                    n2 += m.fingerprint[i] * m.fingerprint[i];
+                }
+                if (n1 > 1e-8f && n2 > 1e-8f)
+                {
+                    fp_sim = max(0.0f, dot / (sqrt(n1) * sqrt(n2)));
+                }
+            }
+            else
+            {
+                fp_sim = 0.5f;
+            }
+
+            // 2. Scalar state closeness (loss, grad_norm, penalty)
+            float loss_diff = fabsf(curr.loss - m.loss) / max(1.0f, m.loss);
+            float grad_diff = fabsf(curr.grad_norm - m.grad_norm) / max(0.1f, m.grad_norm);
+            float scalar_closeness = expf(-1.5f * loss_diff - 0.8f * grad_diff);
+
+            // Combined similarity in [0, 1]
+            float sim = 0.65f * fp_sim + 0.35f * scalar_closeness;
+            if (sim > max_sim)
+                max_sim = sim;
+        }
+        return max_sim;
+    }
+
+    // Records an unstable / bad checkpoint state into memory
+    void LLMTrainer::record_mistake(float loss, float ema_loss, float grad_norm, float penalty, float meta_scale, float gain, size_t step)
+    {
+        MistakeCheckpoint cp;
+        cp.loss = loss;
+        cp.ema_loss = ema_loss;
+        cp.grad_norm = grad_norm;
+        cp.penalty = penalty;
+        cp.meta_scale = meta_scale;
+        cp.gain = gain;
+        cp.step = step;
+        cp.fingerprint = model.compute_lightweight_fingerprint();
+
+        mistake_memory.push_back(cp);
+        if (mistake_memory.size() > MAX_MISTAKES)
+        {
+            mistake_memory.pop_front();
+        }
+        ring0::log_debug_file("MISTAKE_MEMORY", "Recorded mistake checkpoint at step " + to_string(step) + " (Loss: " + to_string(loss) + ", GradNorm: " + to_string(grad_norm) + ", Total stored: " + to_string(mistake_memory.size()) + ")");
+    }
+
     // Evaluates average loss over validation batches without parameter updates
     float LLMTrainer::evaluate_loss(const TextDataset &dataset, size_t eval_batches)
     {
@@ -391,11 +455,16 @@ namespace ring3
             float safe_loss = (std::isnan(avg_loss) || std::isinf(avg_loss)) ? 12.0f : min(avg_loss, 12.0f);
             ring0::Loss::record_loss(safe_loss);
 
+            // Record bad batch as a mistake checkpoint
+            record_mistake(safe_loss, ema_loss_short, 10.0f, optimizer.penalty_factor, 1.0f, dynamic_lr_gain, optimizer.timestep);
+
             return LLMStepMetrics{
                 optimizer.timestep, safe_loss, 999.0f, 0.0f, 0.0f, 0.0f,
                 optimizer.get_learning_rate(), T, optimizer.penalty_factor,
                 optimizer.ema_d_loss_d_penalty, 1.0f, 0.0f,
-                0.0f, 0.0f, true /* bad_batch_skipped */};
+                0.0f, 0.0f, true /* bad_batch_skipped */,
+                1.0f /* coc_proof_score */, true /* coc_verified */,
+                1.0f /* mistake_similarity */, mistake_memory.size()};
         }
 
         // Loss is healthy: capture rolling safe snapshot before updating parameters
@@ -415,12 +484,14 @@ namespace ring3
         // Record loss into ring0::Loss history
         ring0::Loss::record_loss(avg_loss);
 
-        // Online Policy Gradient update for Meta-Loss Network
+        // Online Policy Gradient update for Meta-Loss Network:
+        // Trains on both realized loss deltas and Taylor nth-order forward loss predictions
         if (config.enable_meta_loss_opt && !watchdog_active)
         {
             if (last_forecast.valid)
             {
-                meta_loss_opt.update_online(avg_loss, last_forecast.reward, 0.5f);
+                float foresight_weight = max(0.20f, min(0.65f, last_forecast.confidence));
+                meta_loss_opt.update_online(avg_loss, last_forecast.reward, foresight_weight);
             }
             else
             {
@@ -442,6 +513,25 @@ namespace ring3
             optimizer.config.curvature_scale *= 0.5f;
         }
 
+        // --- Mistake Checkpoint Memory: evaluate similarity to past mistake states ---
+        MistakeCheckpoint candidate;
+        candidate.loss = avg_loss;
+        candidate.ema_loss = ema_loss_short;
+        candidate.grad_norm = pre_clip_grad_norm;
+        candidate.penalty = optimizer.penalty_factor;
+        candidate.meta_scale = meta_out.loss_scale_multiplier;
+        candidate.gain = dynamic_lr_gain;
+        candidate.step = optimizer.timestep;
+        candidate.fingerprint = model.compute_lightweight_fingerprint();
+
+        float mistake_sim = compute_mistake_similarity(candidate);
+
+        // Record a new mistake if gradient norm is extreme or loss spiked dramatically
+        if (pre_clip_grad_norm > 3.0f || (ema_initialized && avg_loss > (ema_loss_short + 1.5f)))
+        {
+            record_mistake(avg_loss, ema_loss_short, pre_clip_grad_norm, optimizer.penalty_factor, meta_out.loss_scale_multiplier, dynamic_lr_gain, optimizer.timestep);
+        }
+
         // 5. Optimizer Step (Multi-Formula Weight Physics + Nesterov + Fisher metric)
         optimizer.config.enable_multi_formula = config.enable_multi_formula_opt && !watchdog_active;
         model.update_parameters(optimizer);
@@ -450,7 +540,9 @@ namespace ring3
             optimizer.timestep, avg_loss, ppl, top1_acc, top20_acc, rank_score,
             optimizer.get_learning_rate(), T, optimizer.penalty_factor,
             optimizer.ema_d_loss_d_penalty, meta_out.loss_scale_multiplier, meta_out.dynamic_focal_gamma,
-            optimizer.taylor_penalty_confidence, optimizer.taylor_penalty_prediction, false};
+            optimizer.taylor_penalty_confidence, optimizer.taylor_penalty_prediction, false,
+            1.0f /* coc_proof_score */, true /* coc_verified */,
+            mistake_sim, mistake_memory.size()};
     }
 
     void LLMTrainer::print_benchmark_dashboard(const BenchmarkTelemetry &tel, size_t current_step, size_t total_steps) const
@@ -500,6 +592,11 @@ namespace ring3
            << " (gain: " << fixed << setprecision(2) << dynamic_lr_gain << "x) | Penalty: "
            << fixed << setprecision(3) << tel.penalty_factor << " (Taylor Conf: "
            << fixed << setprecision(1) << (tel.taylor_penalty_conf * 100.0f) << "%)\n";
+        if (tel.mistake_count > 0 || !mistake_memory.empty())
+        {
+            ss << "  [Mistake Memory]      Stored Checkpoints: " << tel.mistake_count
+               << " | State Similarity: " << fixed << setprecision(1) << (tel.mistake_similarity * 100.0f) << "%\n";
+        }
         ss << "  [CoC Logic & Proof]   Proof Consistency: " << fixed << setprecision(1)
            << (tel.coc_proof_consistency * 100.0f) << "% | Type-Attention Prior: ACTIVE (alpha=0.25)\n";
         if (tel.chrono_ticks > 0 || tel.background_streamed_tokens > 0)
@@ -710,6 +807,8 @@ namespace ring3
                              << watchdog_lr_penalty << " until recovery.\n";
                         // Snap penalty back toward its floor so it stops ratcheting up during the spike.
                         optimizer.penalty_factor = max(0.05f, min(1.0f, optimizer.penalty_factor));
+                        // Record this spike state in mistake checkpoint memory
+                        record_mistake(metrics.loss, watchdog_baseline_loss, last_grad_norm, optimizer.penalty_factor, metrics.meta_loss_scale, dynamic_lr_gain, step);
                     }
                     if (watchdog_active)
                     {
@@ -733,18 +832,28 @@ namespace ring3
 
                     // Dynamic Learning Rate Directional Tracking & Damped Operation Reversal:
                     last_lr_loss_delta = loss_delta;
+                    // Staged dynamic LR floor: never crush below 0.60x on high loss (> 5.5) or 0.40x on mid loss
+                    float gain_floor = (metrics.loss > 5.5f) ? 0.60f : (metrics.loss > 3.5f ? 0.45f : 0.35f);
                     if (loss_delta > 0.01f)
                     {
-                        // Last LR operation made loss HIGHER -> Reverse direction and shrink number to prevent explosion!
+                        // Last LR operation made loss HIGHER -> Reverse direction and gently shrink rather than halving
                         last_lr_direction = -1.0f;
-                        dynamic_lr_gain = max(0.20f, (dynamic_lr_gain * 0.5f) / (1.0f + 2.0f * loss_delta));
+                        float shrink = 1.0f / (1.0f + 0.8f * loss_delta);
+                        dynamic_lr_gain = max(gain_floor, dynamic_lr_gain * shrink);
                     }
                     else if (loss_delta < -0.01f)
                     {
                         // Last LR operation decreased loss -> continue in favorable direction
                         last_lr_direction = 1.0f;
-                        float surge = max(0.0f, min(0.02f, -loss_delta * 0.02f));
-                        dynamic_lr_gain = min(1.10f, dynamic_lr_gain * (1.0f + surge));
+                        float surge = max(0.0f, min(0.04f, -loss_delta * 0.05f));
+                        dynamic_lr_gain = min(1.30f, dynamic_lr_gain * (1.0f + surge));
+                    }
+
+                    // Mistake Checkpoint Memory Similarity Throttling:
+                    if (metrics.mistake_similarity > 0.40f)
+                    {
+                        float penalty_mult = max(0.70f, 1.0f - 0.40f * (metrics.mistake_similarity - 0.40f) / 0.60f);
+                        dynamic_lr_gain = max(gain_floor, dynamic_lr_gain * penalty_mult);
                     }
 
                     // Curvature Directional Tracking & Damped Operation Reversal:
@@ -1005,6 +1114,8 @@ namespace ring3
                 tel.active_context_length = current_seq_len;
                 tel.active_model_layers = model.num_active_layers;
                 tel.formula_stats = optimizer.last_formula_stats;
+                tel.mistake_similarity = metrics.mistake_similarity;
+                tel.mistake_count = mistake_memory.size();
                 tel.chrono_ticks = chrono_engine ? chrono_engine->telemetry.total_chrono_ticks.load() : 0;
                 tel.background_streamed_tokens = background_streamer ? background_streamer->get_total_streamed_tokens() : 0;
 

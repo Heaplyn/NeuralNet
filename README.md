@@ -58,28 +58,34 @@ Rather than treating all network parameters uniformly, the optimizer evaluates e
 - Multi-depth tree of internal cognitive sub-reasoners allowing latent deliberation before token generation.
 - Supports multi-pass self-reflection cycles ($C \ge 1$) with residual momentum damping.
 
-### 6. 🚀 Fast-Start & Training-Stability Engine (`Ring 1`/`Ring 2`)
-Getting cross-entropy loss to *start* low and *descend* without detonating, via three orthogonal, scale-aware mechanisms. See [`Training Stability & Fast-Start Descent`](./NeuralNet%20Obsidian/02%20-%20Ring%201%20(Layers%20%26%20Advanced%20Optimizers)/Training%20Stability%20%26%20Fast-Start%20Descent.md) for full intuition and worked numbers.
+### 6. 🚀 Fast-Start & Training-Stability Engine (`Ring 1`/`Ring 2`/`Ring 3`)
+Getting cross-entropy loss to *start* low and *descend* without detonating, via orthogonal, scale-aware mechanisms:
+- **🎯 Log-Unigram Head-Bias Init:** seed the output bias with $b_{\text{head}}[c] = \log P(c)$ so step-0 output *is* the corpus word-frequency distribution. Step-0 loss drops from $\ln V = 9.21$ to unigram entropy $H(p) \approx 7.42$.
+- **📉 Loss-Adaptive Trust Region:** per-element step cap $|\Delta w|_{\max}$ moves inversely with loss — tight ($0.12$) when loss is high and unstable, loosening to $0.60$ as loss converges.
+- **📐 Dimension-Aware Damping:** scale steps by $\sqrt{d_{\text{ref}}/\max(d_{\text{ref}}, \dim)}$ so wide tied vocabulary embeddings ($10000\times128$) are throttled ~9× without slowing down 128-wide layers.
+- **🛡️ Mistake Checkpoint Memory & State Fingerprinting:** captures compact 8–16 float weight/layer norm fingerprints before and during major gradient/loss spikes. Evaluates cosine and scalar similarity $S \in [0, 1]$ before steps, throttling dynamic LR gain to prevent recurrence.
+- **🌱 Soft Residual Scaling on Depth Growth:** when unlocking deeper transformer layers (4 $\to$ 6 $\to$ 8 $\to$ 10), newly activated block projections ($W_o, W_{\text{down}}$) are scaled by $0.10\times$ so new layers initially act as near-identity mappings without destabilizing converged representations.
 
-**The problem, intuitively:** an untrained model over a 10k-word vocabulary starts by guessing *every word equally likely* — the worst possible strategy, costing $\ln V \approx 9.2$ nats. And the moment it *does* start learning, one optimizer step on its biggest weight can over-correct so violently that loss rockets **8.7 → 47** in a single update.
-
-- **🎯 Log-Unigram Head-Bias Init:** seed the output bias with $b_{\text{head}}[c] = \log P(c)$ so step-0 output *is* the corpus word-frequency distribution. Step-0 loss drops from the uniform floor $\ln V = 9.21$ to the **unigram entropy** $H(p) \approx 7.42$ — a free −1.8 nats (perplexity $10{,}000 \to 1{,}770$) before a single gradient — and the model then only learns the *contextual deviation* from the marginal.
-- **📉 Loss-Adaptive Trust Region ("move inversely to loss"):** the per-element step cap $|\Delta w|_{\max}$ moves *opposite* to the loss — tight ($0.12$) when loss is high and unstable, loosening to $0.60$ as loss converges. Timid when lost, confident when oriented. This alone eliminated the $8.7\to47$ blow-up (worst excursion fell to ~16).
-- **📐 Dimension-Aware Damping ("higher dimension → less affected"):** scale the step by $\sqrt{d_{\text{ref}}/\max(d_{\text{ref}}, \dim)}$ so wider tensors move less per element — the same $1/\sqrt{d}$ logic as Xavier/He init and attention's $1/\sqrt{d_k}$, applied to the *update*. The tied vocab weight ($10000\times128$, used as **both** embedding and output head) is throttled ~9× while 128-wide layers run at full speed — surgically taming the one tensor that caused the instability.
-
-> These attack three different axes — *where you start* (altitude), *when* steps are dangerous (high-loss regime), and *which weight* is dangerous (the biggest one) — so they stack cleanly and cost only a handful of scalar ops per step.
+### 7. 📡 Asynchronous Streaming & Chrono Engine (`Ring 3`)
+- **Background Data Streamer:** dedicated background worker thread ingests, tokenizes, and appends slices of large corpus files directly from disk into the active token buffer while forward/backward tensor passes execute without I/O stutter.
+- **Chrono Async Engine:** concurrent multi-threaded engine orchestrating 5 periodic asynchronous subsystems:
+  1. *Online Meta-Optimizer Policy Stepping*
+  2. *Taylor Trajectory Horizon Extrapolation*
+  3. *Calculus of Constructions (CoC) Proof Verification*
+  4. *Semantic Vocab Concept Cluster Mining*
+  5. *Stability Watchdog & Gradient Norm Auditing*
 
 ---
 
 ## 📚 Complete Obsidian Knowledge Vault
 
-A full 28-document **Obsidian Knowledge Vault** is included in [`NeuralNet Obsidian/`](./NeuralNet%20Obsidian/):
+A full 29-document **Obsidian Knowledge Vault** is included in [`NeuralNet Obsidian/`](./NeuralNet%20Obsidian/):
 - **Overview & Architecture**: System map, Ring hierarchy, and 5-phase roadmap.
 - **Ring 0**: Tensor memory layouts, cache-blocked matrix multiplication, SIMD activations, CUDA engines, and the **Taylor Loss-Trajectory Predictor**.
 - **Ring 1**: Attention mechanics, recursive thought chains, meta-loss optimization, 4-formula weight physics, and **training-stability / fast-start descent** (bias init, trust region, dimension damping).
 - **Ring 2**: TransformerLM decoder, BPE subword tokenizer, and semantic VocabManager.
-- **Ring 3**: Token relevancy parsing, 3D progressive curriculum, and training workflows.
-- **Theoretical Foundations**: Information geometry, Riemannian manifolds, Fisher metrics, and Adaptive Focal Loss theory.
+- **Ring 3**: Token relevancy parsing, 3D progressive curriculum, **Mistake Checkpoint Memory**, **Chrono Async Engine**, and background data streaming.
+- **Theoretical Foundations**: Information geometry, Riemannian manifolds, Fisher metrics, Calculus of Constructions, and Adaptive Focal Loss theory.
 
 ---
 
@@ -92,14 +98,14 @@ A full 28-document **Obsidian Knowledge Vault** is included in [`NeuralNet Obsid
 
 ### Build Instructions
 ```bash
-# Configure build with CMake (use the Visual Studio generator installed on your machine)
-cmake -B build -S . -G "Visual Studio 17 2022" -A x64
+# Configure build with CMake
+cmake -B build -S . -G "Visual Studio 18 2026" -A x64
 
 # Compile Release binary
 cmake --build build --config Release
 
-# Run with interactive training and debug diagnostics
-./build/Release/nn_demo.exe --steps 100 --lr 0.3 --debug
+# Run training benchmark with 100 steps and real-time dashboard
+./build/Release/nn_demo.exe --steps 100
 ```
 
 ---

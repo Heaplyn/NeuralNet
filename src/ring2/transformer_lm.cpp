@@ -349,10 +349,36 @@ namespace ring2
         cout << "  >> Model capacity expanded successfully! Total params now: " << get_total_parameters() << "\n\n";
     }
 
-    // Sets the active number of layers for progressive depth ramping
+    // Sets the active number of layers for progressive depth ramping with soft residual scaling
     void TransformerLM::set_active_layers(size_t active_layers)
     {
-        num_active_layers = max(size_t(1), min(active_layers, blocks.size()));
+        size_t target_layers = max(size_t(1), min(active_layers, blocks.size()));
+        if (target_layers > num_active_layers)
+        {
+            // Soft Residual Scaling: initialize newly activated layers to near-identity by scaling projection weights
+            for (size_t l = num_active_layers; l < target_layers; ++l)
+            {
+                blocks[l].attention.W_o *= 0.10f; // Scale attention output projection to 10%
+                blocks[l].W_down *= 0.10f;        // Scale SwiGLU down projection to 10%
+            }
+        }
+        num_active_layers = target_layers;
+    }
+
+    // Computes a fast, compact fingerprint of model state (8-16 floats) for mistake detection
+    std::vector<float> TransformerLM::compute_lightweight_fingerprint() const
+    {
+        std::vector<float> fp;
+        fp.reserve(16);
+        fp.push_back(embedding.token_weights.norm());
+        fp.push_back(b_head.norm());
+        size_t active_n = min(num_active_layers, blocks.size());
+        for (size_t i = 0; i < active_n && fp.size() < 14; ++i)
+        {
+            fp.push_back(blocks[i].attention.W_q.norm());
+            fp.push_back(blocks[i].W_gate.norm());
+        }
+        return fp;
     }
 
     // Forward pass for full context (Training phase with GQA + SwiGLU + Pre-RMSNorm)

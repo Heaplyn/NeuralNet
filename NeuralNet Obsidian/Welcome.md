@@ -1,47 +1,112 @@
-# 👋 Welcome to the NeuralNet Vault
+# 👋 Welcome to the NeuralNet Knowledge Base & System Vault
 
-This is the knowledge base for the **RingWrapper Causal Transformer LLM** — a C++17, dependency-free, from-scratch language-model engine built around a strict 5-ring architectural hierarchy. The vault documents the code, the mathematics, the training dynamics, and — importantly — the *reasoning* behind each design choice, including the parts that are grounded engineering vs. the parts that are experimental heuristics.
+This is the central knowledge base and engineering manual for the **RingWrapper Causal Transformer LLM** — a dependency-free, high-performance, from-scratch C++17 language model engine built around a strict 5-ring architectural hierarchy.
 
-Nothing here is written to sell you on the project. Where a mechanism is a plain re-application of a known technique, that's what the note says. Where a heuristic is experimental and could go wrong, the note says that too.
-
----
-
-## 🚀 Where to start
-
-- **If you want the map first:** [[Index|Master Index]] lists every note grouped by Ring.
-- **If you want the "how does it fit together" view:** [[00 - Overview & Architecture/Architecture Map|Architecture Map]].
-- **If you're chasing a specific problem:** the section below routes you.
+This vault documents every mathematical formula, hardware layout, training dynamic, and heuristic in the codebase. It is written with intellectual honesty: standard engineering is called standard engineering, and experimental heuristics are explained with their intended failure modes, stability guards, and fallback paths.
 
 ---
 
-## 🔎 Problem-driven starting points
+## 🧭 How to Navigate This Vault (If You're Confused or Stuck)
 
-| I want to understand… | Start here |
-|---|---|
-| Why training loss starts around 7 instead of the uniform 9.2 floor | [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent\|Training Stability & Fast-Start Descent]] |
-| Why loss sometimes climbs mid-run and how the engine catches it | Same note ↑ (watchdog + spike-skip sections) |
-| The 4-formula routing (F1/F2/F3/F4) I see on the dashboard | [[02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics\|4-Formula Dynamic Weight Physics]] |
-| The `META:` / `γ` line on the log | [[02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer\|Meta-Neural Loss & Step Optimizer]] |
-| The `TAYL:` line and "trajectory reward" | [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor\|Taylor Loss-Trajectory Predictor]] |
-| The per-step `logs/debug_run_*.txt` block format | [[04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide\|Debug Log Format & Reading Guide]] |
-| Attention (GQA, RoPE, ALiBi) | [[02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi\|Attention Mechanics & ALiBi]] |
-| The training loop end-to-end | [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture\|LLMTrainer Architecture]] |
-| The Fisher / natural-gradient / Riemannian language | [[05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information\|Riemannian Manifolds & Fisher Information]] |
+If you are trying to understand the system and feel overwhelmed by the moving parts, here is a mental model and directed reading path based on your exact question:
 
----
-
-## 🧱 The Ring architecture in one paragraph
-
-Ring 0 is pure math and hardware primitives (tensors, activations, loss, CUDA/OpenMP). Ring 1 adds neural layers and optimizers (attention, embeddings, AdamW, meta-network). Ring 2 assembles full models (`TransformerLM`, BPE tokenizer, vocab manager). Ring 3 is training pipelines, datasets, and checkpoint I/O. Ring 4 is the CLI application (`main.cpp`). A module in ring N may only include from rings ≤ N — full details in [[00 - Overview & Architecture/Ring Dependency Hierarchy|Ring Dependency Hierarchy]].
-
----
-
-## 📎 Two conventions used throughout the vault
-
-1. **Prerequisites blocks** — most notes start with a short list of concepts and other notes you should be comfortable with first. Skip them at your own risk, but they're there to save you from bouncing between pages.
-2. **"Relation to prior work" callouts** — where a mechanism is close to something well-known in the literature (learned optimizers, log-frequency init, Newton–Gregory extrapolation, natural gradient), the note says so honestly instead of framing it as novel.
+```
+                            ┌────────────────────────────────────────┐
+                            │  "What is the system doing right now?" │
+                            └───────────────────┬────────────────────┘
+                                                │
+         ┌────────────────────────┬─────────────┴────────────┬────────────────────────┐
+         ▼                        ▼                          ▼                        ▼
+┌──────────────────┐    ┌───────────────────┐      ┌───────────────────┐    ┌───────────────────┐
+│ "Why did loss    │    │ "What are F1-F4   │      │ "What is the Meta │    │ "How does data &  │
+│ climb or spike?" │    │ formulas doing?"  │      │ optimizer doing?" │    │ depth expand?"    │
+└────────┬─────────┘    └─────────┬─────────┘      └─────────┬─────────┘    └─────────┬─────────┘
+         ▼                        ▼                          ▼                        ▼
+[[02 - Ring 1/          [[02 - Ring 1/             [[02 - Ring 1/           [[04 - Ring 3/
+Training Stability &    4-Formula Dynamic          Meta-Neural Loss &       Curriculum & Horizon
+Fast-Start Descent]]    Weight Physics]]           Step Optimizer]]         Expansion]]
+```
 
 ---
 
-## 🔗 Next
-- [[Index|Master Index]] — enumerate every note in the vault.
+## 🔎 Problem-Driven Directory & Troubleshooting Compass
+
+Use this table if something unexpected is happening in the logs or during training:
+
+| Symptom or Question | What is happening | Where to read in depth |
+|---|---|---|
+| **"Loss jumped from 4.5 to 9+ suddenly"** | The model hit a high-loss gradient spike or unstable learning rate step. The stability watchdog catches this, snaps knobs to safe defaults, freezes meta modulations, and falls back to safe snapshots. | [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent\|Training Stability & Fast-Start Descent]] |
+| **"What does `gain: 0.60x` or `1.30x` mean?"** | Dynamic LR Gain tracks whether recent parameter steps decreased or increased loss. If loss worsens, gain is gently damped with a hard floor; if loss drops, gain surges up to 1.30x. | [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture\|LLMTrainer Architecture]] |
+| **"What are F1, F2, F3, F4 on the dashboard?"** | Dynamic 4-Formula Weight Physics routes each individual weight to a specialized update rule (Riemannian Natural Grad, Nesterov Curvature, AdamW, or Inertial Sparse Decay) based on its Fisher importance metric. | [[02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics\|4-Formula Dynamic Weight Physics]] |
+| **"Why does the Meta-Optimizer have `γ`, `loss_scale`, and `lr_mod`?"** | An online 3-layer neural network ($12 \to 32 \to 16 \to 4$) that monitors live training dynamics and tunes the loss landscape, focal concentration on unlearned tokens, and curvature scaling. | [[02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer\|Meta-Neural Loss & Step Optimizer]] |
+| **"What is Taylor Foresight and Trajectory Reward?"** | Newton–Gregory backward-difference polynomial extrapolation predicts where loss is heading $K$ steps into the future, rewarding the meta-network for setting up a downward path rather than just a 1-step drop. | [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor\|Taylor Loss-Trajectory Predictor]] |
+| **"What is Mistake Checkpoint Memory?"** | A memory buffer storing compact 8–16 float fingerprints of model weights before/during major spikes. If the model approaches a state similar to a past failure, it throttles LR gain and avoids the trap. | [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture\|LLMTrainer Architecture]] |
+| **"Why does the engine have a Chrono Async Engine?"** | 5 non-blocking background threads run concurrently on millisecond chrono schedules (Meta-Optimizer updates, Taylor forecasting, CoC formal logic verification, semantic cluster mining, watchdog auditing). | [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture\|LLMTrainer Architecture]] |
+| **"How does dataset streaming work without stutter?"** | A background worker thread tokenizes and streams slices of large corpus files from disk into the active token buffer while the GPU/CPU matrix engines train on current batches. | [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture\|LLMTrainer Architecture]] |
+
+---
+
+## 🧠 Mental Models: Understanding the Architecture
+
+### 1. The 5-Ring Dependency Invariant
+The codebase strictly prevents circular dependencies and architectural spaghetti through a unidirectional layered topology:
+- **Ring 0 (Foundation)**: Raw matrix math, SIMD vectorization, cache blocking, hardware kernels, scalar loss history, and Taylor polynomial extrapolation.
+- **Ring 1 (Physics & Layers)**: Attention (GQA, ALiBi, RoPE), RMSNorm, SwiGLU, AdamW, Meta-Loss Network, and 4-Formula Weight Physics.
+- **Ring 2 (Models & Tokenization)**: Full 10-layer `TransformerLM`, BPE subword tokenizer, semantic concept clusters, and KV-cache generation.
+- **Ring 3 (Data & Training Engine)**: `TextDataset`, `LLMTrainer`, asynchronous streaming, chrono scheduler, and checkpoint manager.
+- **Ring 4 (Application & CLI)**: User interface, CLI interactive runtime, and benchmarking suite (`main.cpp`).
+
+> **Invariant Rule:** Code in **Ring $N$** can include from **Ring $M$** if and only if **$M \le N$**.
+
+---
+
+### 2. Multi-Tiered Training Stability Philosophy
+Traditional deep learning relies on hand-crafted learning rate schedules and hopes the loss doesn't explode. RingWrapper uses a 4-tier active defense system:
+1. **Initial Log-Unigram Marginal Bias**: Step 0 loss starts at $H(p) \approx 7.4$ instead of random guessing ($\ln V = 9.2$).
+2. **Dimension & Loss Adaptive Trust Region**: Large embedding matrices and high-loss steps are damped proportional to $\sqrt{d}$ and loss magnitude.
+3. **Soft Residual Scaling on Growth**: When ramping model depth (4 $\to$ 6 $\to$ 8 $\to$ 10 layers), newly activated layer projections are scaled down so new blocks initially act as near-identity mappings ($x + \epsilon f(x) \approx x$) without disrupting converged representations.
+4. **Active Watchdog & Mistake Memory**: If loss rises persistently above recent EMA, adaptive knobs freeze, LR drops, and the failure state is fingerprinted to prevent recurrent spikes.
+
+---
+
+## 📚 Complete Vault Sitemap
+
+### 📌 Overview & Architecture
+- [[00 - Overview & Architecture/Architecture Map|Architecture Map]] — Full system diagram and data flow.
+- [[00 - Overview & Architecture/Ring Dependency Hierarchy|Ring Dependency Hierarchy]] — Dependency rules and modular boundaries.
+- [[00 - Overview & Architecture/Roadmap & Vision|Roadmap & Vision]] — Evolutionary phases of the engine.
+
+### ⚡ Ring 0 (Core Math & Hardware)
+- [[01 - Ring 0 (Core Math & Hardware)/Tensor Memory Layout & SIMD|Tensor Memory Layout & SIMD]] — Contiguous memory, cache blocking, and vectorization.
+- [[01 - Ring 0 (Core Math & Hardware)/Activations (GELU, SwiGLU, RMSNorm)|Activations & Normalization]] — Mathematical formulas and numerical stability.
+- [[01 - Ring 0 (Core Math & Hardware)/Loss Calculus & Derivative Pyramid|Loss Calculus & Derivative Pyramid]] — Multi-order loss derivatives.
+- [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor]] — Newton–Gregory loss foresight.
+- [[01 - Ring 0 (Core Math & Hardware)/CUDA & Hardware Engines|CUDA & Hardware Engines]] — Hardware acceleration kernels and OpenMP.
+
+### 🔬 Ring 1 (Layers & Advanced Optimizers)
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi|Attention Mechanics & ALiBi]] — Multi-head, GQA, ALiBi, and RoPE.
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics|4-Formula Dynamic Weight Physics]] — Riemannian Natural Grad, Nesterov, AdamW, and Sparse Decay.
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer|Meta-Neural Loss & Step Optimizer]] — Online meta-learning policy network.
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent|Training Stability & Fast-Start Descent]] — Unigram bias init, trust regions, and dimension damping.
+- [[02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer|Hierarchical Recursive Thought Layer]] — Deliberative cognitive reflection trees.
+
+### 🏛️ Ring 2 (Models, Vocabulary & Inference)
+- [[03 - Ring 2 (Models, Vocabulary & Inference)/TransformerLM Decoder Architecture|TransformerLM Decoder Architecture]] — Full causal decoder pipeline.
+- [[03 - Ring 2 (Models, Vocabulary & Inference)/BPE Tokenizer & Semantic VocabManager|BPE Tokenizer & Semantic VocabManager]] — Subword tokenization and concept clustering.
+- [[03 - Ring 2 (Models, Vocabulary & Inference)/KV-Cache & Generation Inference|KV-Cache & Generation Inference]] — Fast streaming token generation.
+
+### 📦 Ring 3 (Data & Training Pipelines)
+- [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Architecture]] — Optimization loop, chrono engines, mistake memory, and telemetry dashboard.
+- [[04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide|Debug Log Format & Reading Guide]] — Per-step diagnostic log anatomy.
+- [[04 - Ring 3 (Data & Training Pipelines)/Curriculum & Horizon Expansion|Curriculum & Horizon Expansion]] — Context length, dataset ratio, and depth expansion schedules.
+
+### 📐 Theoretical Foundations & Physics
+- [[05 - Theoretical Foundations & Physics/Information Geometry & Loss Dynamics|Information Geometry & Loss Dynamics]] — Curvature manifolds and loss topology.
+- [[05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information|Riemannian Manifolds & Fisher Information]] — Mathematical foundations of Fisher natural gradients.
+- [[05 - Theoretical Foundations & Physics/Calculus of Constructions & Dependent Types|Calculus of Constructions & Dependent Types]] — Formal proof consistency in attention heads.
+
+---
+
+## 🔗 Next Steps
+- Open [[Index|Master Index]] for a complete alphabetical reference of all vault topics.
+- Explore [[00 - Overview & Architecture/Architecture Map|Architecture Map]] to see the system in action.

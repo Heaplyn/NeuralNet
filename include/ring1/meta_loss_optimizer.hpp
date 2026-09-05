@@ -9,6 +9,7 @@
 
 #include "ring0/tensor.hpp"
 #include <vector>
+#include <deque>
 #include <string>
 #include <memory>
 
@@ -43,10 +44,10 @@ namespace ring1
      */
     struct MetaOptimizationOutput
     {
-        float loss_scale_multiplier = 1.0f; ///< Continuous loss scale multiplier [0.2, 4.0]
-        float dynamic_focal_gamma = 1.0f;   ///< Dynamic focal loss exponent gamma [0.0, 3.0]
-        float lr_step_modulator = 1.0f;     ///< Meta-predicted learning rate multiplier [0.5, 3.0]
-        float curvature_scale = 1.0f;       ///< Curvature preconditioning factor [0.2, 2.5]
+        float loss_scale_multiplier = 1.0f; ///< Continuous loss scale multiplier [0.85, 1.25]
+        float dynamic_focal_gamma = 0.0f;   ///< Dynamic focal loss exponent gamma [0.0, 0.35]
+        float lr_step_modulator = 1.0f;     ///< Meta-predicted learning rate multiplier [0.85, 1.20]
+        float curvature_scale = 1.0f;       ///< Curvature preconditioning factor [0.80, 1.20]
     };
 
     /**
@@ -57,6 +58,7 @@ namespace ring1
     {
         /// Input feature dimension: 8 base telemetry + 4 Taylor foresight signals.
         static constexpr size_t META_INPUT_DIM = 12;
+        static constexpr size_t ROLLING_VARIANCE_WINDOW = 30;
 
     private:
         // 3-Layer Meta MLP: 12 -> 32 -> 16 -> 4
@@ -69,11 +71,13 @@ namespace ring1
         std::vector<float> last_h1;
         std::vector<float> last_h2;
         MetaOptimizationOutput last_output;
+        std::deque<float> recent_loss_scales;
 
         float prev_loss = 0.0f;
         float prev_delta_loss = 0.0f;
         size_t step_count = 0;
-        float meta_lr = 0.02f;
+        size_t update_stride = 4;      ///< Policy gradient step cadence (only update every N steps)
+        float meta_lr = 0.006f;         ///< Slashed learning rate for smooth meta-policy updates
 
         /// Applies one policy-gradient-style update across ALL layers (W1,W2,W3) for a scalar reward.
         void apply_policy_gradient(float reward);
@@ -94,6 +98,12 @@ namespace ring1
          *        the last step. @param trajectory_reward from ring0::TaylorTrajectory.
          */
         void update_online(float current_loss, float trajectory_reward, float foresight_weight = 0.5f);
+
+        /// Computes rolling variance of the loss scale output over the last ROLLING_VARIANCE_WINDOW steps
+        float compute_output_variance() const;
+
+        /// Returns true if the meta-optimizer is stable and operating with healthy low output variance
+        bool is_healthy() const;
 
         /// Resets the meta-neural network internal state and caches
         void reset();
