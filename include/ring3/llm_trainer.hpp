@@ -30,13 +30,13 @@ namespace ring3
         float min_learning_rate = 0.00001f; ///< Minimum learning rate floor for cosine decay
         float warmup_ratio = 0.05f;         ///< Fraction of total steps devoted to linear warmup
         float weight_decay = 0.01f;         ///< Decoupled L2 regularization
-        float max_grad_norm = 1.0f;         ///< Global parameter-gradient L2 clip (1.0 default)
+        float max_grad_norm = .760f;        ///< Global parameter-gradient L2 clip (1.0 default)
         size_t log_interval = 15;           ///< Logging cadence
 
         // --- Loss-adaptive LR shrink & decay slowdown ---
         float loss_shrink_short_alpha = 0.05f; ///< EMA alpha for short-window loss
         float loss_shrink_long_alpha = 0.01f;  ///< EMA alpha for long-window loss
-        float loss_shrink_floor = 0.2f;        ///< Minimum LR multiplier
+        float loss_shrink_floor = 0.34f;       ///< Minimum LR multiplier
         size_t loss_shrink_warmup = 30;        ///< Skip shrink until this many steps have run
 
         // --- Ablation baseline switch (Phase 0 of the stability plan) ---
@@ -65,7 +65,7 @@ namespace ring3
 
         // --- Progressive Dataset Horizon Growth ---
         bool progressive_dataset_growth = true; ///< Gradually expand dataset ratio
-        float initial_dataset_ratio = 0.40f;    ///< Starting corpus slice (30%)
+        float initial_dataset_ratio = 0.40f;    ///< Starting corpus slice (40%)
         float max_dataset_ratio = 1.00f;        ///< Final corpus slice (100%)
         float dataset_growth_rate = 0.002f;     ///< Linear increment of corpus ratio per step
 

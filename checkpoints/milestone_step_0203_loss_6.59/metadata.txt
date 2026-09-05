@@ -1,0 +1,19 @@
+===========================================
+   RINGWRAPPER LLM CHECKPOINT METADATA     
+===========================================
+Training Step:       203
+Focal Loss:          6.5948
+Top-1 Accuracy:      0.00%
+Top-20 Rank Score:   0.00%
+Perplexity (PPL):    731.27
+Total Parameters:    491600
+
+--- Architecture Parameters ---
+Vocab Size:          10000
+Max Context Len:     2048
+Embedding Dimension: 32
+Query Heads (Q):     4
+KV Heads (GQA):      2
+Stacked Layers:      10
+SwiGLU FFN Hidden:   64
+Positional Bias:     ALiBi Geometric Slope Active

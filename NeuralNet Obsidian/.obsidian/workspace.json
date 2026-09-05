@@ -11,10 +11,14 @@
             "id": "090880940288195b",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "New tab"
+              "title": "Tensor3D & Matrix Math"
             }
           }
         ]
@@ -95,7 +99,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
+                "file": "01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -114,7 +118,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
+                "file": "01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -157,7 +161,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
+                "file": "01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -184,8 +188,11 @@
       "bases:Create new base": false
     }
   },
-  "active": "38140cb836345e1e",
+  "active": "090880940288195b",
   "lastOpenFiles": [
+    "01 - Ring 0 (Core Math & Hardware)/CUDA & Hardware Acceleration Engine.md",
+    "00 - Overview & Architecture/Ring Dependency Hierarchy.md",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
     "01 - Ring 0 (Core Math & Hardware)/Taylor Penalty Prediction & Confidence Gating.md.tmp.36356.642b18b076bf",
     "05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization.md.tmp.36356.3e19a1c0c06e",
     "02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi.md.tmp.36356.717c8977948e",
@@ -196,7 +203,6 @@
     "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
     "01 - Ring 0 (Core Math & Hardware)/Numerical Stability & NaN Prevention Physics.md",
     "01 - Ring 0 (Core Math & Hardware)/Config & Telemetry Systems.md",
-    "00 - Overview & Architecture/Ring Dependency Hierarchy.md",
     "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
     "04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide.md",
     "00 - Overview & Architecture/Architecture Map.md",
@@ -219,8 +225,6 @@
     "05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information.md",
     "03 - Ring 2 (Models & Transformers)/Semantic VocabManager & Lexicon Clusters.md",
     "03 - Ring 2 (Models & Transformers)/BPE Tokenizer & Merging Engine.md",
-    "02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov.md",
-    "05 - Theoretical Foundations & Physics",
-    "04 - Ring 3 (Data & Training Pipelines)"
+    "05 - Theoretical Foundations & Physics"
   ]
 }

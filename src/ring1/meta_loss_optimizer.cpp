@@ -214,11 +214,10 @@ namespace ring1
         // near 1.0, not the wide [0.2,4.0]/[0,3] swings that let it destabilize training.
         // A small model is dominated by the base optimizer + init; the meta knobs should
         // nudge, not dominate.
-        float raw_loss_scale = std::clamp(0.7f + 0.8f * meta_sigmoid(logits[0]), 0.7f, 1.5f);  // gradient push [0.7, 1.5]
-        float raw_focal      = std::clamp(1.0f * meta_sigmoid(logits[1]), 0.0f, 1.0f);         // hard-token focus [0.0, 1.0]
-        float raw_lr_mod     = std::clamp(0.8f + 0.45f * meta_sigmoid(logits[2]), 0.8f, 1.25f);// LR multiplier [0.8, 1.25]
-        float raw_curv       = std::clamp(0.7f + 0.6f * meta_sigmoid(logits[3]), 0.7f, 1.3f);  // step preconditioning [0.7, 1.3]
-
+        float raw_loss_scale = std::clamp(0.7f + 0.8f * meta_sigmoid(logits[0]), 0.7f, 1.5f); // gradient push [0.7, 1.5]
+        float raw_focal = std::clamp(1.0f * meta_sigmoid(logits[1]), 0.0f, 1.0f);             // hard-token focus [0.0, 1.0]
+        float raw_lr_mod = std::clamp(0.8f + 0.45f * meta_sigmoid(logits[2]), 0.8f, 1.25f);   // LR multiplier [0.8, 1.25]
+        float raw_curv = std::clamp(0.7f + 0.6f * meta_sigmoid(logits[3]), 0.7f, 1.3f);       // step preconditioning [0.7, 1.3]
         // OUTPUT SMOOTHING (EMA). The online policy-gradient update is noisy, so the raw
         // knobs can slam between their rails from one step to the next (e.g. loss-scale
         // 0.2x <-> 4.0x every step), which whipsaws the main model's gradient scale and
@@ -226,10 +225,9 @@ namespace ring1
         // move gradually instead of bang-banging. (alpha small = heavy smoothing.)
         const float alpha = 0.15f;
         last_output.loss_scale_multiplier = (1.0f - alpha) * last_output.loss_scale_multiplier + alpha * raw_loss_scale;
-        last_output.dynamic_focal_gamma   = (1.0f - alpha) * last_output.dynamic_focal_gamma   + alpha * raw_focal;
-        last_output.lr_step_modulator     = (1.0f - alpha) * last_output.lr_step_modulator     + alpha * raw_lr_mod;
-        last_output.curvature_scale       = (1.0f - alpha) * last_output.curvature_scale       + alpha * raw_curv;
-
+        last_output.dynamic_focal_gamma = (1.0f - alpha) * last_output.dynamic_focal_gamma + alpha * raw_focal;
+        last_output.lr_step_modulator = (1.0f - alpha) * last_output.lr_step_modulator + alpha * raw_lr_mod;
+        last_output.curvature_scale = (1.0f - alpha) * last_output.curvature_scale + alpha * raw_curv;
         return last_output;
     }
 
@@ -284,6 +282,7 @@ namespace ring1
         // Clip reward to [-2,2] so one wild loss jump can't produce a giant weight step,
         // then scale by the meta learning rate. This is the common (reward * activation)
         // magnitude applied to every weight below.
+        meta_lr = std::clamp(meta_lr + (min(prev_loss, 7.2f) - 5.0f) * .005f, 0.0001f, 0.1f); // sanity check
         float grad_scale = std::max(-2.0f, std::min(2.0f, reward)) * meta_lr;
 
         // Output heads W3 / b3  (16 -> 4): weight_{i,j} += grad_scale * h2_i

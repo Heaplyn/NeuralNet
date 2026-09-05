@@ -63,46 +63,43 @@ namespace ring0
         float coc_proof_consistency_threshold = 0.85f;  ///< Minimum proof score required for sound thought step
 
         // --- Optimizer & Directional Physics ---
-        bool enable_damped_operation_reversal = true; ///< Invert and halve operations that increase loss
-        float reversal_shrink_factor = 0.20f;         ///< Step size divisor on reversed operations
-        float reversal_loss_sensitivity = 1.0f;       ///< Sensitivity factor in divisor (1 + sens * delta_L)
-        float global_gradient_clip_norm = 1.0f;       ///< Maximum L2 norm of gradient vectors
-        float logit_soft_cap = 20.0f;                 ///< Gemma-style tanh logit soft-capping cap
-        float adamw_beta1 = .91f;                     ///< 1st moment exponential smoothing
-        float adamw_beta2 = .82f;                     ///< 2nd moment exponential smoothing
-        float adamw_eps = 1e-8f;                      ///< Numerical stability constant
-        float base_weight_decay = 0.01f;              ///< Decoupled L2 regularization
-        float max_trust_region_step = 0.5f;           ///< Per-element step cap for fine-tuning
-        float min_trust_region_step = 0.06f;          ///< Per-element step cap during early/high loss
+        bool enable_damped_operation_reversal = true;
+        float reversal_shrink_factor = 0.15f; // stronger reversal (was 0.20)
+        float reversal_loss_sensitivity = 1.0f;
+        float global_gradient_clip_norm = 0.75f; // tighter clip (was 1.0) — stops the |g| 3–10 explosions
+        float logit_soft_cap = 20.0f;
+        float adamw_beta1 = 0.91f;
+        float adamw_beta2 = 0.82f;
+        float adamw_eps = 1e-8f;
+        float base_weight_decay = 0.01f;
+        float max_trust_region_step = 0.45f; // when loss is low / stable
+        float min_trust_region_step = 0.08f; // when loss is high / unstable (was 0.06)
 
         // --- Stability Watchdog & Weight Rollback Recovery ---
-        bool enable_weight_rollback_recovery = true; ///< Restore healthy snapshot on extreme loss surge
-        float bad_batch_loss_threshold = 7.8f;       // catch earlier
-        float watchdog_rise_gap = 0.45f;             // more sensitive to jumps over EMA
-        size_t watchdog_trigger_streak = 2;          // act faster
-        float watchdog_lr_penalty = 0.25f;           // stronger LR suppression while recovering
-        size_t watchdog_min_recovery_steps = 25;     // longer cooldown period
-        // float watchdog_rise_gap = 0.80f;             ///< Loss gap over EMA that counts as an anomalous step
-        float watchdog_recover_gap = 0.30f; ///< Target proximity to baseline for watchdog disengagement
-        // float watchdog_lr_penalty = 0.40f;  ///< LR scaling multiplier while watchdog is active
-        size_t dataset_cooldown_steps = 10; ///< Steps to throttle LR by 40% when expanding corpus slice
-        size_t context_cooldown_steps = 10; ///< Steps to throttle LR by 40% when expanding sequence length
+        bool enable_weight_rollback_recovery = true;
+        float bad_batch_loss_threshold = 7.5f; // catch a bit earlier
+        float watchdog_rise_gap = 0.40f;       // more sensitive
+        size_t watchdog_trigger_streak = 2;
+        float watchdog_lr_penalty = 0.28f;       // slightly less brutal than 0.25
+        size_t watchdog_min_recovery_steps = 30; // longer cooldown
+        float watchdog_recover_gap = 0.25f;
+        size_t dataset_cooldown_steps = 15;
+        size_t context_cooldown_steps = 20; // longer after context increase
 
         // --- Multi-Formula Weight Physics Routing ---
-        bool enable_multi_formula_routing = true;    ///< Dynamic 4-Formula parameter update physics
-        float f1_natural_gradient_threshold = 0.55f; ///< Importance threshold for Geodesic Natural Gradient
-        float f2_nesterov_threshold = 0.32f;         ///< Importance threshold for Curvature-Modulated Nesterov
-        float f3_adamw_threshold = 0.18f;            ///< Importance threshold for Variance-Bounded AdamW
-        float f4_sparse_decay_rate = 0.04f;          ///< Pruning / inertial decay rate for low-salience weights
+        bool enable_multi_formula_routing = true;
+        float f1_natural_gradient_threshold = 0.52f; // slightly easier to qualify
+        float f2_nesterov_threshold = 0.30f;
+        float f3_adamw_threshold = 0.16f;
+        float f4_sparse_decay_rate = 0.035f; // less aggressive pruning
 
         // --- Taylor Trajectory Predictor & Curvature ---
-        bool enable_taylor_prediction = true;  ///< 2nd-order Taylor series optimal penalty calculation
-        float taylor_step_damping = -0.42f;    ///< Step dampener for predicted penalty update
-        float taylor_min_confidence = 0.22f;   ///< Minimum confidence score required to apply Taylor step
-        bool enable_rayleigh_curvature = true; ///< Second-order Rayleigh quotient loss curvature scaling
-        float curvature_scale_floor = 0.02f;   ///< Minimum allowable curvature multiplier
-        float curvature_scale_ceiling = 3.00f; ///< Maximum allowable curvature multiplier
-
+        bool enable_taylor_prediction = true;
+        float taylor_step_damping = -0.38f;  // slightly milder
+        float taylor_min_confidence = 0.19f; // safe zone (0.12 was too low, 0.22 was a bit high)
+        bool enable_rayleigh_curvature = true;
+        float curvature_scale_floor = 0.05f; // raised from 0.002 (too extreme)
+        float curvature_scale_ceiling = 2.50f;
         // --- Generation & Sampling Hyperparameters ---
         float default_temperature = 0.60f;        ///< Softmax logits temperature
         size_t default_top_k = 50;                ///< Top-K candidate cutoff
