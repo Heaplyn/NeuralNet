@@ -65,15 +65,15 @@ namespace ring0
         // --- Optimizer & Directional Physics ---
         bool enable_damped_operation_reversal = true;
         float reversal_shrink_factor = 0.15f; // stronger reversal (was 0.20)
-        float reversal_loss_sensitivity = 1.0f;
-        float global_gradient_clip_norm = 0.75f; // tighter clip (was 1.0) — stops the |g| 3–10 explosions
+        float reversal_loss_sensitivity = 0.8f;
+        float global_gradient_clip_norm = 0.65f; ///< Tighter clip (was 1.0) — stops the |g| 3–10 explosions
         float logit_soft_cap = 20.0f;
         float adamw_beta1 = 0.91f;
         float adamw_beta2 = 0.82f;
         float adamw_eps = 1e-8f;
         float base_weight_decay = 0.01f;
         float max_trust_region_step = 0.45f; // when loss is low / stable
-        float min_trust_region_step = 0.08f; // when loss is high / unstable (was 0.06)
+        float min_trust_region_step = 0.14f; // when loss is high / unstable (was 0.06)
 
         // --- Stability Watchdog & Weight Rollback Recovery ---
         bool enable_weight_rollback_recovery = true;
@@ -128,9 +128,9 @@ namespace ring0
         float relevance_interpolated_alpha = 0.55f; ///< Exponent for non-linear relevancy interpolation
 
         // --- Asynchronous Background Data Streaming ---
-        bool enable_background_data_streaming = true;  ///< Stream and tokenize files in background without blocking
-        size_t background_stream_poll_interval = 5;    ///< Step cadence to pull buffered tokens into trainer
-        size_t initial_bootstrap_data_files = 1;       ///< Number of initial files to parse synchronously at startup
+        bool enable_background_data_streaming = true; ///< Stream and tokenize files in background without blocking
+        size_t background_stream_poll_interval = 5;   ///< Step cadence to pull buffered tokens into trainer
+        size_t initial_bootstrap_data_files = 1;      ///< Number of initial files to parse synchronously at startup
 
         // --- Singleton / Global Instance Access ---
         static RuntimeConfig &get_instance()

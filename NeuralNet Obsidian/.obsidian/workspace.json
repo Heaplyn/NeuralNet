@@ -11,10 +11,14 @@
             "id": "bfce69c0989637f6",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "Index.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "New tab"
+              "title": "Index"
             }
           }
         ]
@@ -95,6 +99,7 @@
             "state": {
               "type": "backlink",
               "state": {
+                "file": "Index.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -113,6 +118,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
+                "file": "Index.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -155,6 +161,7 @@
             "state": {
               "type": "outline",
               "state": {
+                "file": "Index.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -183,6 +190,17 @@
   },
   "active": "bfce69c0989637f6",
   "lastOpenFiles": [
+    "06 - Reference Dictionaries & Practical Guides/Master Practical Concepts & Real-World Analogies.md",
+    "06 - Reference Dictionaries & Practical Guides/Asynchronous Chrono Co-Pilots & Background Streaming.md",
+    "06 - Reference Dictionaries & Practical Guides/Vocabulary Expansion & BPE Subword Mechanics.md",
+    "06 - Reference Dictionaries & Practical Guides/Loss Landscapes, Curvature & Optimization Physics.md",
+    "06 - Reference Dictionaries & Practical Guides/Attention Mechanics Visualized & Head Math.md",
+    "06 - Reference Dictionaries & Practical Guides/Training Log Diagnostics & Troubleshooting Runbook.md",
+    "06 - Reference Dictionaries & Practical Guides/Practical Guide - Why Neural Nets Overshoot & How to Stabilize.md",
+    "06 - Reference Dictionaries & Practical Guides/Configuration Values Master Explainer.md",
+    "06 - Reference Dictionaries & Practical Guides/Mathematical & Systems Variables Dictionary.md",
+    "06 - Reference Dictionaries & Practical Guides",
+    "04 - Ring 3 (Data & Training Pipelines)/Universal Data Ingestion (CSV, TXT, BIN).md",
     "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
     "Welcome.md",
     "03 - Ring 2 (Models, Vocabulary & Inference)/KV-Cache & Generation Inference.md",
@@ -205,19 +223,8 @@
     "02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi.md.tmp.36356.717c8977948e",
     "04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture.md.tmp.36356.9d4b56a608b7",
     "01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor.md.tmp.36356.4ea94dd4f499",
-    "02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi.md",
     "02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer.md.tmp.36356.093ca85396a8",
-    "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
-    "01 - Ring 0 (Core Math & Hardware)/Numerical Stability & NaN Prevention Physics.md",
-    "01 - Ring 0 (Core Math & Hardware)/Config & Telemetry Systems.md",
-    "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
-    "04 - Ring 3 (Data & Training Pipelines)/Debug Log Format & Reading Guide.md",
-    "00 - Overview & Architecture/Architecture Map.md",
-    "01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus.md",
-    "05 - Theoretical Foundations & Physics/Adaptive Focal Loss Theory.md",
-    "01 - Ring 0 (Core Math & Hardware)/Calculus of Constructions & Dependent-Typed Neural Reasoning.md",
     "02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov.md.tmp.20512.e015cd96e9d6",
-    "02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent.md.tmp.20512.05fde7146050",
-    "Index.md.tmp.20512.c4466ad92f14"
+    "02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent.md.tmp.20512.05fde7146050"
   ]
 }

@@ -552,11 +552,11 @@ int main(int argc, char *argv[])
     ring2::TransformerConfig lm_cfg;
     lm_cfg.vocab_size = tokenizer.get_vocab_size();
     lm_cfg.max_seq_len = cli_max_seq_len;
-    lm_cfg.embed_dim = 32;   // Bumped from 128 to 256 for wider representation and stability
+    lm_cfg.embed_dim = 256;  // Bumped from 128 to 256 for wider representation and stability
     lm_cfg.num_heads = 4;    // 8 attention heads (head_dim = 32)
     lm_cfg.num_kv_heads = 2; // Grouped-Query Attention (4 KV heads)
-    lm_cfg.num_layers = 10;
-    lm_cfg.ffn_dim = 64; // Bumped from 256 to 512
+    lm_cfg.num_layers = 6;
+    lm_cfg.ffn_dim = 256; // Bumped from 256 to 512
 
     ring2::TransformerLM model(lm_cfg);
     model.print_architecture();

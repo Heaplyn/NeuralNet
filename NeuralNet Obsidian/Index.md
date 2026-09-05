@@ -1,6 +1,6 @@
 # 🧠 NeuralNet: RingWrapper Causal Transformer & Meta-Learning Engine
 
-Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains documentation, mathematical derivations, architectural specifications, and implementation details for the **RingWrapper Causal Transformer LLM** and its meta-learning optimization framework.
+Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains documentation, mathematical derivations, architectural specifications, configuration references, and practical troubleshooting guides for the **RingWrapper Causal Transformer LLM** and its meta-learning optimization framework.
 
 ---
 
@@ -57,6 +57,17 @@ Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains docume
 - [[05 - Theoretical Foundations & Physics/Calculus of Constructions & Dependent Types|Calculus of Constructions & Dependent-Typed Attention]]
 - [[05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization|Multi-Order Empirical Loss Derivatives $\frac{d\mathcal{L}}{d\text{Pen}}$]]
 
+### 📖 [[06 - Reference Dictionaries & Practical Guides/Master Practical Concepts & Real-World Analogies|06 - Reference Dictionaries & Practical Guides]]
+- [[06 - Reference Dictionaries & Practical Guides/Master Practical Concepts & Real-World Analogies|💡 Master Practical Concepts & Real-World Analogies (20 Core Concepts in Plain English)]]
+- [[06 - Reference Dictionaries & Practical Guides/Mathematical & Systems Variables Dictionary|📖 Mathematical & Systems Variables Dictionary (Every Symbol, Metric & Coordinate Explained)]]
+- [[06 - Reference Dictionaries & Practical Guides/Configuration Values Master Explainer|⚙️ Configuration Values Master Explainer (Field-by-Field Tuning Playbook)]]
+- [[06 - Reference Dictionaries & Practical Guides/Practical Guide - Why Neural Nets Overshoot & How to Stabilize|🎯 Practical Guide: Why Neural Networks Overshoot & How RingWrapper Stabilizes Them]]
+- [[06 - Reference Dictionaries & Practical Guides/Training Log Diagnostics & Troubleshooting Runbook|🩺 Training Log Diagnostics & Troubleshooting Runbook (Log Flag & Root-Cause Matrix)]]
+- [[06 - Reference Dictionaries & Practical Guides/Attention Mechanics Visualized & Head Math|👁️ Attention Mechanics Visualized & Head Math Walkthrough]]
+- [[06 - Reference Dictionaries & Practical Guides/Loss Landscapes, Curvature & Optimization Physics|🏔️ Loss Landscapes, Curvature & Optimization Physics]]
+- [[06 - Reference Dictionaries & Practical Guides/Vocabulary Expansion & BPE Subword Mechanics|🔡 Vocabulary Expansion & BPE Subword Mechanics]]
+- [[06 - Reference Dictionaries & Practical Guides/Asynchronous Chrono Co-Pilots & Background Streaming|⚡ Asynchronous Chrono Co-Pilots & Background Streaming]]
+
 ---
 
 ```mermaid
@@ -65,4 +76,8 @@ graph TD
     R1 --> R2["Ring 2: TransformerLM Decoder, VocabManager & Tokenizer"]
     R2 --> R3["Ring 3: Text Datasets, Relevancy Parsing & LLMTrainer"]
     R3 --> R4["Ring 4: Interactive Real-Time Applications & Inference"]
+    R0 -.-> Ref["06: Dictionaries, Config Explainers & Troubleshooting Runbooks"]
+    R1 -.-> Ref
+    R2 -.-> Ref
+    R3 -.-> Ref
 ```

@@ -2,7 +2,7 @@
 
 This is the central knowledge base and engineering manual for the **RingWrapper Causal Transformer LLM** — a dependency-free, high-performance, from-scratch C++17 language model engine built around a strict 5-ring architectural hierarchy.
 
-This vault documents every mathematical formula, hardware layout, training dynamic, and heuristic in the codebase. It is written with intellectual honesty: standard engineering is called standard engineering, and experimental heuristics are explained with their intended failure modes, stability guards, and fallback paths.
+This vault documents every mathematical formula, hardware layout, training dynamic, variable symbol, configuration parameter, and heuristic in the codebase. It is written with intellectual honesty: standard engineering is called standard engineering, and experimental heuristics are explained with their intended failure modes, stability guards, and fallback paths.
 
 ---
 
@@ -18,13 +18,13 @@ If you are trying to understand the system and feel overwhelmed by the moving pa
          ┌────────────────────────┬─────────────┴────────────┬────────────────────────┐
          ▼                        ▼                          ▼                        ▼
 ┌──────────────────┐    ┌───────────────────┐      ┌───────────────────┐    ┌───────────────────┐
-│ "Why did loss    │    │ "What are F1-F4   │      │ "What is the Meta │    │ "How does data &  │
-│ climb or spike?" │    │ formulas doing?"  │      │ optimizer doing?" │    │ depth expand?"    │
+│ "Why did loss    │    │ "What are F1-F4   │      │ "What is the Meta │    │ "What do these    │
+│ climb or spike?" │    │ formulas doing?"  │      │ optimizer doing?" │    │ config knobs do?" │
 └────────┬─────────┘    └─────────┬─────────┘      └─────────┬─────────┘    └─────────┬─────────┘
          ▼                        ▼                          ▼                        ▼
-[[02 - Ring 1/          [[02 - Ring 1/             [[02 - Ring 1/           [[04 - Ring 3/
-Training Stability &    4-Formula Dynamic          Meta-Neural Loss &       Curriculum & Horizon
-Fast-Start Descent]]    Weight Physics]]           Step Optimizer]]         Expansion]]
+[[06 - Reference/       [[02 - Ring 1/             [[02 - Ring 1/           [[06 - Reference/
+Practical Guide:        4-Formula Dynamic          Meta-Neural Loss &       Configuration Values
+Why Overshoots Happen]] Weight Physics]]           Step Optimizer]]         Master Explainer]]
 ```
 
 ---
@@ -35,14 +35,14 @@ Use this table if something unexpected is happening in the logs or during traini
 
 | Symptom or Question | What is happening | Where to read in depth |
 |---|---|---|
-| **"Loss jumped from 4.5 to 9+ suddenly"** | The model hit a high-loss gradient spike or unstable learning rate step. The stability watchdog catches this, snaps knobs to safe defaults, freezes meta modulations, and falls back to safe snapshots. | [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent\|Training Stability & Fast-Start Descent]] |
-| **"What does `gain: 0.60x` or `1.30x` mean?"** | Dynamic LR Gain tracks whether recent parameter steps decreased or increased loss. If loss worsens, gain is gently damped with a hard floor; if loss drops, gain surges up to 1.30x. | [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture\|LLMTrainer Architecture]] |
-| **"What are F1, F2, F3, F4 on the dashboard?"** | Dynamic 4-Formula Weight Physics routes each individual weight to a specialized update rule (Riemannian Natural Grad, Nesterov Curvature, AdamW, or Inertial Sparse Decay) based on its Fisher importance metric. | [[02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics\|4-Formula Dynamic Weight Physics]] |
-| **"Why does the Meta-Optimizer have `γ`, `loss_scale`, and `lr_mod`?"** | An online 3-layer neural network ($12 \to 32 \to 16 \to 4$) that monitors live training dynamics and tunes the loss landscape, focal concentration on unlearned tokens, and curvature scaling. | [[02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer\|Meta-Neural Loss & Step Optimizer]] |
-| **"What is Taylor Foresight and Trajectory Reward?"** | Newton–Gregory backward-difference polynomial extrapolation predicts where loss is heading $K$ steps into the future, rewarding the meta-network for setting up a downward path rather than just a 1-step drop. | [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor\|Taylor Loss-Trajectory Predictor]] |
-| **"What is Mistake Checkpoint Memory?"** | A memory buffer storing compact 8–16 float fingerprints of model weights before/during major spikes. If the model approaches a state similar to a past failure, it throttles LR gain and avoids the trap. | [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture\|LLMTrainer Architecture]] |
-| **"Why does the engine have a Chrono Async Engine?"** | 5 non-blocking background threads run concurrently on millisecond chrono schedules (Meta-Optimizer updates, Taylor forecasting, CoC formal logic verification, semantic cluster mining, watchdog auditing). | [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture\|LLMTrainer Architecture]] |
-| **"How does dataset streaming work without stutter?"** | A background worker thread tokenizes and streams slices of large corpus files from disk into the active token buffer while the GPU/CPU matrix engines train on current batches. | [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture\|LLMTrainer Architecture]] |
+| **"Why did loss spike or oscillate between 8 and 12?"** | Step size vs. parameter magnitude mismatch, Hessian curvature cliffs ($\lambda_{\max}$), or momentum buffer poisoning after a bad batch. | [[06 - Reference Dictionaries & Practical Guides/Practical Guide - Why Neural Nets Overshoot & How to Stabilize\|Practical Guide: Why Neural Networks Overshoot]] |
+| **"What does each config knob in `RuntimeConfig` do?"** | Exhaustive field-by-field breakdown with default values, allowed ranges, and failure symptoms if set too high or low. | [[06 - Reference Dictionaries & Practical Guides/Configuration Values Master Explainer\|Configuration Values Master Explainer]] |
+| **"What do all the mathematical symbols & variables mean?"** | Complete dictionary of every symbol ($\theta, g_t, m_t, v_t, S_A, S_B, S_C, \lambda_{\max}$, CoC sorts, etc.). | [[06 - Reference Dictionaries & Practical Guides/Mathematical & Systems Variables Dictionary\|Mathematical & Systems Variables Dictionary]] |
+| **"How do I interpret the 11-line console telemetry block?"** | Complete field breakdown, warning flag definitions (`[BAD_BATCH_SKIPPED]`, `[WATCHDOG_TRIGGERED]`, etc.), and diagnosis runbook. | [[06 - Reference Dictionaries & Practical Guides/Training Log Diagnostics & Troubleshooting Runbook\|Training Log Diagnostics & Troubleshooting Runbook]] |
+| **"How does attention & RoPE math work step-by-step?"** | Detailed matrix dimension tracing from token IDs to Q/K/V projections, RoPE 2D rotation blocks, ALiBi slopes, and SwiGLU. | [[06 - Reference Dictionaries & Practical Guides/Attention Mechanics Visualized & Head Math\|Attention Mechanics Visualized & Head Math]] |
+| **"Why does the loss surface have sharp ravines?"** | Exploration of high-dimensional loss geometry, condition numbers, Rayleigh curvature, and Fisher Natural Gradients. | [[06 - Reference Dictionaries & Practical Guides/Loss Landscapes, Curvature & Optimization Physics\|Loss Landscapes, Curvature & Optimization Physics]] |
+| **"How does BPE tokenizer merge bytes and expand vocab?"** | Non-destructive live vocabulary expansion algorithm ($256 \to 10\text{k} \to 32\text{k}$) and semantic cluster initialization. | [[06 - Reference Dictionaries & Practical Guides/Vocabulary Expansion & BPE Subword Mechanics\|Vocabulary Expansion & BPE Subword Mechanics]] |
+| **"How do the 5 chrono background threads run concurrently?"** | Lock-free ring buffer streaming and asynchronous Co-Pilot architecture. | [[06 - Reference Dictionaries & Practical Guides/Asynchronous Chrono Co-Pilots & Background Streaming\|Asynchronous Chrono Co-Pilots & Background Streaming]] |
 
 ---
 
@@ -60,18 +60,10 @@ The codebase strictly prevents circular dependencies and architectural spaghetti
 
 ---
 
-### 2. Multi-Tiered Training Stability Philosophy
-Traditional deep learning relies on hand-crafted learning rate schedules and hopes the loss doesn't explode. RingWrapper uses a 4-tier active defense system:
-1. **Initial Log-Unigram Marginal Bias**: Step 0 loss starts at $H(p) \approx 7.4$ instead of random guessing ($\ln V = 9.2$).
-2. **Dimension & Loss Adaptive Trust Region**: Large embedding matrices and high-loss steps are damped proportional to $\sqrt{d}$ and loss magnitude.
-3. **Soft Residual Scaling on Growth**: When ramping model depth (4 $\to$ 6 $\to$ 8 $\to$ 10 layers), newly activated layer projections are scaled down so new blocks initially act as near-identity mappings ($x + \epsilon f(x) \approx x$) without disrupting converged representations.
-4. **Active Watchdog & Mistake Memory**: If loss rises persistently above recent EMA, adaptive knobs freeze, LR drops, and the failure state is fingerprinted to prevent recurrent spikes.
-
----
-
 ## 📚 Complete Vault Sitemap
 
 ### 📌 Overview & Architecture
+- [[00 - Overview & Architecture/Beginner Roadmap & Core Concepts|Beginner Roadmap & Core Concepts]] — Fundamental ML concepts and prerequisite roadmaps.
 - [[00 - Overview & Architecture/Architecture Map|Architecture Map]] — Full system diagram and data flow.
 - [[00 - Overview & Architecture/Ring Dependency Hierarchy|Ring Dependency Hierarchy]] — Dependency rules and modular boundaries.
 - [[00 - Overview & Architecture/System Roadmap|Capabilities Roadmap]] — Evolutionary phases of the engine.
@@ -121,8 +113,12 @@ Traditional deep learning relies on hand-crafted learning rate schedules and hop
 - [[05 - Theoretical Foundations & Physics/Calculus of Constructions & Dependent Types|Calculus of Constructions & Dependent Types]] — Formal proof consistency in attention heads.
 - [[05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization|Multi-Order Loss Derivatives & Optimization]] — Empirical loss derivatives.
 
----
-
-## 🔗 Next Steps
-- Open [[Index|Master Index]] for a complete alphabetical reference of all vault topics.
-- Explore [[00 - Overview & Architecture/Architecture Map|Architecture Map]] to see the system in action.
+### 📖 Reference Dictionaries & Practical Guides
+- [[06 - Reference Dictionaries & Practical Guides/Mathematical & Systems Variables Dictionary|Mathematical & Systems Variables Dictionary]] — Exhaustive dictionary of every symbol, coordinate, and metric.
+- [[06 - Reference Dictionaries & Practical Guides/Configuration Values Master Explainer|Configuration Values Master Explainer]] — Complete guide to all config parameters, default values, and tuning symptoms.
+- [[06 - Reference Dictionaries & Practical Guides/Practical Guide - Why Neural Nets Overshoot & How to Stabilize|Practical Guide: Why Neural Networks Overshoot & How RingWrapper Stabilizes Them]] — Deep dive into loss curvature, momentum poisoning, and overshoot physics.
+- [[06 - Reference Dictionaries & Practical Guides/Training Log Diagnostics & Troubleshooting Runbook|Training Log Diagnostics & Troubleshooting Runbook]] — Troubleshooting runbook for logs, warning flags, and recovery steps.
+- [[06 - Reference Dictionaries & Practical Guides/Attention Mechanics Visualized & Head Math|Attention Mechanics Visualized & Head Math]] — Worked numerical tensor examples of GQA, RoPE, and ALiBi.
+- [[06 - Reference Dictionaries & Practical Guides/Loss Landscapes, Curvature & Optimization Physics|Loss Landscapes, Curvature & Optimization Physics]] — Non-Euclidean optimization and 4-formula routing.
+- [[06 - Reference Dictionaries & Practical Guides/Vocabulary Expansion & BPE Subword Mechanics|Vocabulary Expansion & BPE Subword Mechanics]] — Live non-destructive subword dictionary expansion.
+- [[06 - Reference Dictionaries & Practical Guides/Asynchronous Chrono Co-Pilots & Background Streaming|Asynchronous Chrono Co-Pilots & Background Streaming]] — 5 background co-pilot worker threads.
