@@ -75,7 +75,7 @@ namespace ring2
         {
             float p = exp(scaled_logits[v] - max_val);
             token_probs.emplace_back(p, static_cast<int>(v));
-            sum_exp += p * .4f; // scale down to reduce extreme probabilities
+            sum_exp += p;
         }
 
         for (auto &tp : token_probs)

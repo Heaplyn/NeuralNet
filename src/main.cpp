@@ -612,37 +612,18 @@ int main(int argc, char *argv[])
         dataset,
         [&](const ring3::LLMStepMetrics &m)
         {
-            if (cli_steps <= 20 || m.step % 3 == 0 || m.step == 1)
+            if (cli_steps <= 10 || m.step % 10 == 0 || m.step == 1 || m.step == cli_steps)
             {
-                cout << "Step " << setw(4) << m.step
-                     << " | L: " << model.num_active_layers << "/" << model.blocks.size()
-                     << " | Ctx: " << setw(3) << m.active_seq_len
-                     << " | LR: " << fixed << setprecision(5) << m.learning_rate
+                cout << "  Step " << setw(5) << m.step << " / " << setw(5) << cli_steps
                      << " | Loss: " << fixed << setprecision(4) << m.loss
-                     << " | |g|: " << fixed << setprecision(3) << trainer.last_grad_norm
-                     << " | Pen: " << fixed << setprecision(3) << m.penalty_factor
-                     << " | dL/dPen: " << showpos << fixed << setprecision(3) << m.d_loss_d_penalty << noshowpos;
-                if (trainer.watchdog_active) cout << " | [WATCHDOG]";
-                if (m.meta_loss_scale > 0.0f)
+                     << " | LR: " << fixed << setprecision(6) << m.learning_rate
+                     << " | Top-1: " << fixed << setprecision(1) << m.top1_accuracy << "%"
+                     << " | Top-20: " << fixed << setprecision(1) << m.top20_accuracy << "%"
+                     << " | PPL: " << fixed << setprecision(1) << m.perplexity
+                     << " | Ctx: " << m.active_seq_len;
+                if (trainer.watchdog_active)
                 {
-                    cout << " | Meta: " << fixed << setprecision(2) << m.meta_loss_scale << "x"
-                         << " | γ: " << fixed << setprecision(2) << m.meta_focal_gamma;
-                }
-                if (m.top20_accuracy > 0.0f)
-                {
-                    cout << " | Top-1: " << fixed << setprecision(1) << m.top1_accuracy << "%"
-                         << " | Top-20: " << fixed << setprecision(1) << m.top20_accuracy << "%";
-                }
-                cout << " | PPL: " << fixed << setprecision(2) << m.perplexity;
-
-                if (trainer.optimizer.last_formula_stats.total_params > 0)
-                {
-                    const auto &fs = trainer.optimizer.last_formula_stats;
-                    cout << "\n    🔬 [Multi-Formula Physics Breakdown] F1(Natural): "
-                         << fixed << setprecision(1) << fs.pct_f1() << "% | F2(Nesterov): "
-                         << fs.pct_f2() << "% | F3(AdamW): "
-                         << fs.pct_f3() << "% | F4(Sparse): "
-                         << fs.pct_f4() << "%";
+                    cout << " [RECOVERY]";
                 }
                 cout << "\n"
                      << flush;

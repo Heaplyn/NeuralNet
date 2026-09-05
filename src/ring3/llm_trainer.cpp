@@ -241,17 +241,10 @@ namespace ring3
             optimizer.config.curvature_scale = 1.0f; // neutral while frozen
         }
 
-        // Anticipatory foresight: pre-emptively bias penalty, LR, and curvature from
-        // the predicted trajectory BEFORE the loss actually moves (predictive Armijo).
+        // Anticipatory foresight: apply bounded curvature modulation from forecast
         if (adaptive_enabled && last_forecast.valid)
         {
-            // Nudge the optimizer penalty ahead of a predicted spike / relax before a drop.
-            optimizer.penalty_factor = clamp(optimizer.penalty_factor * .55f + 0.02f * last_forecast.penalty_foresight, 0.00005f, 30.0f);
-            // Predictive LR shaping (bolder into a forecast descent, damped into a rise).
-            optimizer.config.lr *= clamp(last_forecast.lr_foresight_scale, 0.5f, 1.6f);
-            optimizer.config.lr = max(0.000001f, min(20.0f, optimizer.config.lr));
-            // Predictive curvature damping when oscillation/rise is forecast.
-            optimizer.config.curvature_scale *= last_forecast.curvature_foresight;
+            optimizer.config.curvature_scale = std::clamp(optimizer.config.curvature_scale * last_forecast.curvature_foresight, 0.5f, 1.5f);
         }
 
         const auto &cfg = ring0::get_config();
@@ -440,38 +433,38 @@ namespace ring3
         float pre_clip_grad_norm = 0.0f; // telemetry: pre-clip global L2 grad norm
         if (was_spike)
         {
-            model.reset_gradients();
+            // Sanitize toxic gradients to safe bounds so the model receives a healthy recovery gradient
+            grad_logits.sanitize_nan_inf(0.0f, -0.25f, 0.25f);
+        }
+
+        model.backward(grad_logits);
+
+        // 4. Clip global L2 norm of parameter gradients
+        float clip_threshold = was_spike ? min(0.5f, config.max_grad_norm) : config.max_grad_norm;
+        if (clip_threshold > 0.0f)
+        {
+            pre_clip_grad_norm = model.clip_grad_norm(clip_threshold);
         }
         else
         {
-            model.backward(grad_logits);
-
-            // 4. Clip global L2 norm of parameter gradients.
-            // clip_grad_norm returns the pre-clip global L2 norm — capture it
-            // so we can log it and diagnose vanishing/exploding gradients.
-            if (config.max_grad_norm > 0.0f)
-            {
-                pre_clip_grad_norm = model.clip_grad_norm(config.max_grad_norm);
-            }
-            else
-            {
-                pre_clip_grad_norm = model.clip_grad_norm(1e30f); // computes without clipping
-            }
-            last_grad_norm = pre_clip_grad_norm;
-
-            // Concept 5: Armijo-Goldstein condition check on step updates
-            // If loss spikes significantly above recent baseline, automatically dampen step
-            if (config.use_armijo_line_search && ema_initialized && avg_loss > (ema_loss_short + 0.35f))
-            {
-                // High curvature overshoot: scale back learning rate for this step
-                optimizer.config.curvature_scale *= 0.5f;
-            }
-
-            // 5. Optimizer Step (Multi-Formula Weight Physics + Nesterov + Fisher metric).
-            // Watchdog freeze also bypasses 4-formula routing -> forces plain AdamW.
-            optimizer.config.enable_multi_formula = config.enable_multi_formula_opt && !watchdog_active;
-            model.update_parameters(optimizer);
+            pre_clip_grad_norm = model.clip_grad_norm(1e30f);
         }
+        last_grad_norm = pre_clip_grad_norm;
+
+        // Concept 5: Armijo-Goldstein condition check on step updates
+        if (config.use_armijo_line_search && ema_initialized && avg_loss > (ema_loss_short + 0.35f))
+        {
+            optimizer.config.curvature_scale *= 0.5f;
+        }
+
+        // 5. Optimizer Step (Multi-Formula Weight Physics + Nesterov + Fisher metric)
+        // On a spike or watchdog freeze, force plain stable AdamW with tight trust region
+        optimizer.config.enable_multi_formula = config.enable_multi_formula_opt && !watchdog_active && !was_spike;
+        if (was_spike)
+        {
+            optimizer.config.max_step = min(optimizer.config.max_step, 0.05f);
+        }
+        model.update_parameters(optimizer);
 
         return LLMStepMetrics{
             optimizer.timestep, avg_loss, ppl, top1_acc, top20_acc, rank_score,
@@ -916,8 +909,8 @@ namespace ring3
                 }
             }
 
-            // 9. Periodic Real-Time Benchmark Dashboard display
-            if (step % 50 == 0 || step == 1 || step == config.steps)
+            // 9. Periodic Real-Time Benchmark Dashboard display (clean cadence every 100 steps)
+            if ((step % 100 == 0 || step == 1 || step == config.steps) && config.steps >= 20)
             {
                 auto now = chrono::high_resolution_clock::now();
                 double elapsed_s = chrono::duration<double>(now - loop_start_time).count();
