@@ -38,38 +38,18 @@ namespace ring0
         return max(0.0f, current - min_l) * multiplier;
     }
 
-    // Tuned version: softer, more conservative scaling
-    // Less aggressive at high loss, smoother transition, never goes below 0.5x
+    // Division-based scaling: when loss is high or uncertain, damp gradient scale smoothly via division
+    // to guarantee numerical stability and prevent gradient surges.
     float Loss::compute_loss_scale_multiplier(float loss)
     {
-        if (loss >= 6.0f)
+        if (std::isnan(loss) || std::isinf(loss) || loss > 15.0f)
         {
-            return 2.2f; // was 3.0 — too aggressive
+            return 0.5f;
         }
-        else if (loss >= 4.5f)
-        {
-            float t = (loss - 4.5f) / (6.0f - 4.5f);
-            return 1.7f + t * (2.2f - 1.7f);
-        }
-        else if (loss >= 3.0f)
-        {
-            float t = (loss - 3.0f) / (4.5f - 3.0f);
-            return 1.25f + t * (1.7f - 1.25f);
-        }
-        else if (loss >= 2.0f)
-        {
-            float t = (loss - 2.0f) / (3.0f - 2.0f);
-            return 1.0f + t * (1.25f - 1.0f);
-        }
-        else if (loss >= 1.2f)
-        {
-            float t = (loss - 1.2f) / (2.0f - 1.2f);
-            return 0.7f + t * (1.0f - 0.7f);
-        }
-        else
-        {
-            return 0.55f; // was 0.3 — too weak
-        }
+        // Smoothly divide when loss is elevated: 1.0 / (1.0 + 0.15 * max(0, loss - 2.5))
+        float excess = std::max(0.0f, loss - 2.5f);
+        float multiplier = 1.0f / (1.0f + 0.15f * excess);
+        return std::clamp(multiplier, 0.45f, 1.0f);
     }
 
     void Loss::clear_history()

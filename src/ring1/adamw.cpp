@@ -112,21 +112,33 @@ namespace ring1
         float loss_mult = ring0::Loss::compute_loss_scale_multiplier(last_loss_observed > 0.0f ? last_loss_observed : 5.0f);
         float effective_penalty_factor = penalty_factor * loss_mult;
 
+        if (layer_directions.size() < layer_scales.size())
+            layer_directions.resize(layer_scales.size(), 1.0f);
+        if (last_layer_loss_deltas.size() < layer_scales.size())
+            last_layer_loss_deltas.resize(layer_scales.size(), 0.0f);
+
         for (size_t i = 0; i < layer_scales.size(); ++i)
         {
+            last_layer_loss_deltas[i] = loss_delta;
+
             // Proper gentle mean-reversion towards 1.0 (5% pull per update)
             layer_scales[i] = 0.95f * layer_scales[i] + 0.05f * 1.0f;
 
-            if (loss_delta < -0.05f)
+            // Directional Check: If last operation made loss higher, REVERSE operation next round!
+            if (loss_delta > 0.02f)
             {
-                layer_scales[i] = min(1.35f, layer_scales[i] * 1.03f);
-                layer_attributions[i] += 1.0f;
-            }
-            else if (loss_delta > 0.15f)
-            {
-                float layer_penalty = min(0.20f, loss_delta * effective_penalty_factor * 0.1f);
+                // Invert direction for next round
+                layer_directions[i] = -layer_directions[i];
+                float layer_penalty = min(0.20f, (loss_delta * effective_penalty_factor * 0.1f) / (1.0f + loss_delta));
                 layer_scales[i] = max(0.75f, layer_scales[i] * (1.0f - layer_penalty));
                 layer_attributions[i] -= 1.0f;
+            }
+            else if (loss_delta < -0.01f)
+            {
+                // Operation lowered loss: continue in favorable direction
+                float step_boost = min(1.35f, layer_scales[i] * (1.0f + 0.02f * std::max(0.0f, layer_directions[i])));
+                layer_scales[i] = std::clamp(step_boost, 0.75f, 1.35f);
+                layer_attributions[i] += 1.0f;
             }
         }
     }
@@ -217,13 +229,37 @@ namespace ring1
             float applied_penalty_step = (taylor_penalty_confidence * taylor_penalty_prediction) +
                                          ((1.0f - taylor_penalty_confidence) * heuristic_step);
 
+            last_penalty_loss_delta = delta_loss;
+
+            // Directional Operation Reversal: If previous penalty shift caused loss to rise, reverse operation next round with damped/smaller magnitude!
+            if (delta_loss > 0.01f && fabsf(delta_penalty) > 1e-4f)
+            {
+                // Reversing the operation that made loss higher and making the step size strictly smaller
+                if (delta_penalty > 0.0f)
+                {
+                    // Increasing penalty caused loss to rise -> reverse by decreasing penalty (shrunk to 50% / (1 + 2*delta_loss))
+                    applied_penalty_step = -0.5f * fabsf(applied_penalty_step) / (1.0f + 2.0f * delta_loss);
+                    last_penalty_direction = -1.0f;
+                }
+                else
+                {
+                    // Decreasing penalty caused loss to rise -> reverse by increasing penalty (shrunk to 50% / (1 + 2*delta_loss))
+                    applied_penalty_step = 0.5f * fabsf(applied_penalty_step) / (1.0f + 2.0f * delta_loss);
+                    last_penalty_direction = 1.0f;
+                }
+            }
+            else
+            {
+                last_penalty_direction = (applied_penalty_step >= 0.0f) ? 1.0f : -1.0f;
+            }
+
+            last_penalty_applied = penalty_factor;
             // Strictly bounded in [0.01, 1.50]
             penalty_factor = std::clamp(penalty_factor + applied_penalty_step, 0.01f, 1.50f);
 
             last_d_loss_d_penalty = d_loss_d_penalty;
         }
 
-        last_penalty_applied = penalty_factor;
         last_loss_observed = current_loss;
     }
 

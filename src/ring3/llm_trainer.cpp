@@ -63,14 +63,15 @@ namespace ring3
 
         const float max_lr = config.learning_rate;
         const float min_lr = config.min_learning_rate;
-        const size_t warmup_steps = min(static_cast<size_t>(20),
-                                        max(static_cast<size_t>(1),
+        // Warmup: scale up to 200 steps (or 20% on short runs)
+        const size_t warmup_steps = min(static_cast<size_t>(200),
+                                        max(static_cast<size_t>(10),
                                             static_cast<size_t>(total_steps * config.warmup_ratio)));
         const float PI = 3.14159265358979323846f;
 
         if (step <= warmup_steps)
         {
-            // Phase 1: Rapid Warmup
+            // Phase 1: Rapid Warmup (0 -> max_lr)
             return max_lr * (static_cast<float>(step) / static_cast<float>(warmup_steps));
         }
         else
@@ -370,26 +371,24 @@ namespace ring3
         }
 
         float avg_loss = (total_loss + total_z_loss) * inv_N;
-        if (std::isnan(avg_loss) || std::isinf(avg_loss))
+        
+        // --- BAD BATCH SKIP WATCHDOG ---
+        // If forward loss explodes above 15.0 or degenerates into NaN/Inf, DO NOT update weights.
+        // Zero out gradients, halve the learning rate immediately, and skip the optimizer step.
+        // This completely prevents weight corruption/freezing.
+        bool bad_batch = (std::isnan(avg_loss) || std::isinf(avg_loss) || avg_loss > 15.0f);
+        if (bad_batch)
         {
-            avg_loss = ema_initialized ? ema_loss_short : 4.5f;
-            grad_logits.sanitize_nan_inf(0.0f, -0.5f, 0.5f);
-        }
+            model.reset_gradients();
+            dynamic_lr_gain = max(0.1f, dynamic_lr_gain * 0.5f);
+            float safe_loss = (std::isnan(avg_loss) || std::isinf(avg_loss)) ? 15.0f : min(avg_loss, 15.0f);
+            ring0::Loss::record_loss(safe_loss);
 
-        // Sanity ceiling. For a vocab of size V, natural cross-entropy sits in [0, ln V]
-        // (~9.2 for V=10k); anything much above that means the softmax has degenerated
-        // (blown-up logits). Cap at 2*ln(V) with a floor of 12 so a single toxic step
-        // doesn't report loss=30-40, doesn't poison the EMA, and doesn't shove the
-        // meta-network into overreacting.
-        float V_f = static_cast<float>(V);
-        float loss_ceiling = max(12.0f, 2.0f * log(max(2.0f, V_f)));
-        bool was_spike = (avg_loss > loss_ceiling);
-        if (was_spike)
-        {
-            // Clamp the reported number and also sanitize the gradients so the
-            // downstream optimizer step doesn't run on garbage this iteration.
-            avg_loss = loss_ceiling;
-            grad_logits.sanitize_nan_inf(0.0f, -0.5f, 0.5f);
+            return LLMStepMetrics{
+                optimizer.timestep, safe_loss, 999.0f, 0.0f, 0.0f, 0.0f,
+                optimizer.get_learning_rate(), T, optimizer.penalty_factor,
+                optimizer.ema_d_loss_d_penalty, 1.0f, 0.0f,
+                0.0f, 0.0f, true /* bad_batch_skipped */};
         }
 
         float ppl = exp(min(avg_loss, 10.0f));
@@ -403,15 +402,8 @@ namespace ring3
         // Record loss into ring0::Loss history
         ring0::Loss::record_loss(avg_loss);
 
-        // Online Policy Gradient update for Meta-Loss Network, optimized against the
-        // Taylor-predicted loss trajectory (foresight reward) rather than only the
-        // last realized step. SKIP on a spike step: the reward would be a huge
-        // negative (this step's "loss went up by 20"), which teaches the meta-network
-        // noise rather than signal.
-        // Skip meta-net training on spike steps AND while the watchdog is active
-        // (feeding a "loss got worse during recovery" reward just teaches the policy
-        // noise it can't act on anyway, since its outputs are frozen out).
-        if (config.enable_meta_loss_opt && !was_spike && !watchdog_active)
+        // Online Policy Gradient update for Meta-Loss Network
+        if (config.enable_meta_loss_opt && !watchdog_active)
         {
             if (last_forecast.valid)
             {
@@ -423,32 +415,12 @@ namespace ring3
             }
         }
 
-        // 3. Backward Pass + Optimizer Step. SKIP entirely on a spike step: the
-        // gradients from a divergent-logit forward pass are toxic (they're what
-        // pushed the model into the bad region in the first place). Applying them
-        // would compound the damage — the exact reason loss climbs to ~18 and
-        // stays there instead of recovering. On a spike we reset gradients and
-        // leave the model unchanged for one step; the trainer schedule will lower
-        // LR on the next iteration.
-        float pre_clip_grad_norm = 0.0f; // telemetry: pre-clip global L2 grad norm
-        if (was_spike)
-        {
-            // Sanitize toxic gradients to safe bounds so the model receives a healthy recovery gradient
-            grad_logits.sanitize_nan_inf(0.0f, -0.25f, 0.25f);
-        }
-
+        // 3. Backward Pass
         model.backward(grad_logits);
 
-        // 4. Clip global L2 norm of parameter gradients
-        float clip_threshold = was_spike ? min(0.5f, config.max_grad_norm) : config.max_grad_norm;
-        if (clip_threshold > 0.0f)
-        {
-            pre_clip_grad_norm = model.clip_grad_norm(clip_threshold);
-        }
-        else
-        {
-            pre_clip_grad_norm = model.clip_grad_norm(1e30f);
-        }
+        // 4. Global Gradient Norm Clipping (default: 1.0)
+        float clip_threshold = (config.max_grad_norm > 0.0f) ? config.max_grad_norm : 1.0f;
+        float pre_clip_grad_norm = model.clip_grad_norm(clip_threshold);
         last_grad_norm = pre_clip_grad_norm;
 
         // Concept 5: Armijo-Goldstein condition check on step updates
@@ -458,19 +430,14 @@ namespace ring3
         }
 
         // 5. Optimizer Step (Multi-Formula Weight Physics + Nesterov + Fisher metric)
-        // On a spike or watchdog freeze, force plain stable AdamW with tight trust region
-        optimizer.config.enable_multi_formula = config.enable_multi_formula_opt && !watchdog_active && !was_spike;
-        if (was_spike)
-        {
-            optimizer.config.max_step = min(optimizer.config.max_step, 0.05f);
-        }
+        optimizer.config.enable_multi_formula = config.enable_multi_formula_opt && !watchdog_active;
         model.update_parameters(optimizer);
 
         return LLMStepMetrics{
             optimizer.timestep, avg_loss, ppl, top1_acc, top20_acc, rank_score,
             optimizer.get_learning_rate(), T, optimizer.penalty_factor,
             optimizer.ema_d_loss_d_penalty, meta_out.loss_scale_multiplier, meta_out.dynamic_focal_gamma,
-            optimizer.taylor_penalty_confidence, optimizer.taylor_penalty_prediction};
+            optimizer.taylor_penalty_confidence, optimizer.taylor_penalty_prediction, false};
     }
 
     void LLMTrainer::print_benchmark_dashboard(const BenchmarkTelemetry &tel, size_t current_step, size_t total_steps) const
@@ -568,14 +535,14 @@ namespace ring3
 
         for (size_t step = 1; step <= config.steps; ++step)
         {
-            // 1. Scheduled LR with loss-adaptive decay slowdown, shrink, uncapped dynamic gain, and loss-scaling multiplier
+            // 1. Scheduled LR with warmup + cosine decay, shrink, and division-based loss stabilization
             float scheduled_lr = compute_scheduled_lr(step, config.steps);
             float shrink = compute_loss_shrink();
             float current_loss_eval = ema_initialized ? ema_loss_short : (initial_loss > 0.0f ? initial_loss : 5.0f);
             
-            float loss_mult = ring0::Loss::compute_loss_scale_multiplier(current_loss_eval);
-            float inv_loss_mult = std::clamp(1.0f / std::max(0.25f, loss_mult), 0.33f, 3.0f);
-            float applied_lr = scheduled_lr * shrink * dynamic_lr_gain * inv_loss_mult;
+            // Division-based stability scaling: divide if loss is high to prevent surges
+            float loss_divisor = 1.0f + 0.10f * std::max(0.0f, current_loss_eval - 3.0f);
+            float applied_lr = (scheduled_lr * shrink * dynamic_lr_gain) / loss_divisor;
 
             // Phase 1 fix: context jump cooldown temporarily reduces LR by 40%
             if (context_jump_cooldown > 0)
@@ -598,7 +565,7 @@ namespace ring3
                 applied_lr *= watchdog_lr_penalty;
             }
 
-            applied_lr = min(config.learning_rate * .08f, max(1e-7f, applied_lr));
+            applied_lr = std::clamp(applied_lr, config.min_learning_rate, config.learning_rate);
             optimizer.set_learning_rate(applied_lr);
 
             // Loss-adaptive per-element step trust region: tight while loss is high
@@ -630,8 +597,14 @@ namespace ring3
             metrics.active_seq_len = current_seq_len;
             observed_steps++;
 
+            if (metrics.bad_batch_skipped)
+            {
+                cout << "\n  ⚠️ [Bad Batch Skip @ step " << step << "] Forward loss was extreme ("
+                     << fixed << setprecision(2) << metrics.loss << " > 15.0). Skipped optimizer update, zeroed gradients, and halved LR.\n";
+            }
+
             // 3. Update loss EMAs and track initial baseline
-            if (!isnan(metrics.loss) && !isinf(metrics.loss))
+            if (!isnan(metrics.loss) && !isinf(metrics.loss) && !metrics.bad_batch_skipped)
             {
                 if (!ema_initialized)
                 {
@@ -695,15 +668,28 @@ namespace ring3
                     metrics.penalty_factor = optimizer.penalty_factor;
                     metrics.d_loss_d_penalty = optimizer.ema_d_loss_d_penalty;
 
-                    // Dynamic Learning Rate Surge Multiplier (bounded strictly to [0.85, 1.25])
-                    if (loss_delta < -0.01f)
+                    // Dynamic Learning Rate Directional Tracking & Damped Operation Reversal:
+                    last_lr_loss_delta = loss_delta;
+                    if (loss_delta > 0.01f)
                     {
-                        float surge = max(0.0f, min(0.05f, -loss_delta * 0.05f));
-                        dynamic_lr_gain = min(1.25f, dynamic_lr_gain * (1.0f + surge));
+                        // Last LR operation made loss HIGHER -> Reverse direction and shrink number to prevent explosion!
+                        last_lr_direction = -1.0f;
+                        dynamic_lr_gain = max(0.20f, (dynamic_lr_gain * 0.5f) / (1.0f + 2.0f * loss_delta));
                     }
-                    else if (loss_delta > 0.15f)
+                    else if (loss_delta < -0.01f)
                     {
-                        dynamic_lr_gain = max(0.85f, dynamic_lr_gain * 0.95f);
+                        // Last LR operation decreased loss -> continue in favorable direction
+                        last_lr_direction = 1.0f;
+                        float surge = max(0.0f, min(0.02f, -loss_delta * 0.02f));
+                        dynamic_lr_gain = min(1.10f, dynamic_lr_gain * (1.0f + surge));
+                    }
+
+                    // Curvature Directional Tracking & Damped Operation Reversal:
+                    last_curv_loss_delta = loss_delta;
+                    if (loss_delta > 0.02f)
+                    {
+                        last_curv_direction = -1.0f;
+                        optimizer.config.curvature_scale = max(0.50f, optimizer.config.curvature_scale * 0.75f);
                     }
 
                     // Stability Watchdog: detect unexpected loss spikes relative to recent stable EMA

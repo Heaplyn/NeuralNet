@@ -24,11 +24,11 @@ namespace ring3 {
 struct LLMTrainingConfig {
     size_t steps = 150;           ///< Total optimization iterations
     size_t batch_size = 8;        ///< Number of parallel context sequences (B)
-    float learning_rate = 0.3f; ///< Peak / Base AdamW learning rate (max_lr)
-    float min_learning_rate = 0.0000001f; ///< Minimum learning rate floor for cosine decay
+    float learning_rate = 0.001f; ///< Peak / Base AdamW learning rate (max_lr, slashed to 0.001 for stability)
+    float min_learning_rate = 0.00001f; ///< Minimum learning rate floor for cosine decay
     float warmup_ratio = 0.05f;   ///< Fraction of total steps devoted to linear warmup
-    float weight_decay = 0.03f;   ///< Decoupled L2 regularization
-    float max_grad_norm = 1.0f;   ///< Global parameter-gradient L2 clip (0 to disable)
+    float weight_decay = 0.01f;   ///< Decoupled L2 regularization
+    float max_grad_norm = 1.0f;   ///< Global parameter-gradient L2 clip (1.0 default)
     size_t log_interval = 15;     ///< Logging cadence
 
     // --- Loss-adaptive LR shrink & decay slowdown ---
@@ -58,15 +58,19 @@ struct LLMTrainingConfig {
     // --- Progressive Depth Ramping ---
     bool progressive_depth_growth = true;   ///< Automatically ramps model depth (active blocks) as steps progress
     size_t initial_layers = 4;              ///< Starting active layer depth
+    size_t max_layers = 5;                  ///< Maximum total model depth (L_max)
+    size_t depth_ramp_step_interval = 250;  ///< Every N steps, unlock 1 more layer
 
-    // --- Progressive Dataset Horizon Expansion (Loss-Adaptive Curriculum) ---
-    bool progressive_dataset_growth = true; ///< Start on a small focused data slice and expand as loss drops
-    float initial_dataset_ratio = 0.05f;    ///< Fraction of corpus to train on initially (e.g. 5%)
+    // --- Progressive Dataset Horizon Growth ---
+    bool progressive_dataset_growth = true; ///< Gradually expand dataset ratio
+    float initial_dataset_ratio = 0.30f;    ///< Starting corpus slice (30%)
+    float max_dataset_ratio = 1.00f;        ///< Final corpus slice (100%)
+    float dataset_growth_rate = 0.0005f;    ///< Linear increment of corpus ratio per step
 
-    // --- Advanced Calculus & Curvature Engine ---
-    bool use_armijo_line_search = true;     ///< Concept 5: Armijo-Goldstein condition backtracking
-    bool use_curvature_scaling = true;      ///< Concept 2: Second-order Rayleigh quotient curvature
-    bool use_data_filter = true;            ///< Feature 6: Auto-learning information entropy filter
+    // --- Auxiliary Numerical Features ---
+    bool use_curvature_scaling = true;     ///< Apply 2nd-order Rayleigh quotient curvature
+    bool use_armijo_line_search = true;    ///< Armijo-Goldstein step validation
+    bool use_data_filter = false;          ///< Shannon information entropy batch filter
 
     // --- Periodic "text challenge" evaluation ---
     size_t eval_interval = 100;   ///< Fire the on_eval callback every N steps (0 disables)
@@ -74,7 +78,7 @@ struct LLMTrainingConfig {
 
 /**
  * @struct LLMStepMetrics
- * @brief Performance statistics and accuracy metrics recorded per training step.
+ * @brief Telemetry captured at each forward/backward optimization iteration.
  */
 struct LLMStepMetrics {
     size_t step;               ///< Current iteration index
@@ -91,6 +95,7 @@ struct LLMStepMetrics {
     float meta_focal_gamma;    ///< Meta-predicted dynamic focal loss exponent
     float taylor_penalty_conf; ///< Confidence score C in [0, 1] for Taylor penalty prediction
     float taylor_penalty_pred; ///< Taylor predicted optimal penalty step
+    bool bad_batch_skipped = false; ///< True if loss > 15.0 caused batch update skip
 };
 
 /**
@@ -163,6 +168,12 @@ public:
     float  watchdog_recover_gap = 0.5f;     ///< current <= baseline + this = fully recovered
     float  watchdog_lr_penalty = 0.25f;     ///< LR *= this while watchdog is active
     bool   watchdog_active = false;
+
+    // --- Directional Effect & Damped Operation Reversal State ---
+    float last_lr_direction = 1.0f;    ///< Direction (+1.0 surge, -1.0 damp) of last LR modulation
+    float last_lr_loss_delta = 0.0f;   ///< Observed loss effect Delta L from last LR adjustment
+    float last_curv_direction = 1.0f;  ///< Direction (+1.0 up, -1.0 down) of last curvature scaling
+    float last_curv_loss_delta = 0.0f; ///< Observed loss effect Delta L from last curvature scaling
 
     /// Callback fired whenever parameter expansion (neurogenesis) occurs
     function<void()> on_param_expansion = nullptr;

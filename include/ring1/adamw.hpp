@@ -68,14 +68,18 @@ namespace ring1
         vector<ring0::Matrix> fisher_diag; ///< Empirical diagonal Fisher Information metric tensor F_ii
         vector<bool> decay_mask;           ///< Whether weight decay is applied to each registered parameter
 
-        // --- Layer-Wise Weight Shift Credit Attribution ---
+        // --- Layer-Wise Weight Shift Credit Attribution & Directional Tracking ---
         vector<ring0::Matrix> last_shifts; ///< Recorded weight shifts Delta W from the previous step
         vector<float> layer_scales;        ///< Dynamic per-tensor learning rate multipliers in [0.5, 2.0]
         vector<float> layer_attributions;  ///< Historical attribution scores per layer
+        vector<float> layer_directions;    ///< Direction (+1.0 scaling up, -1.0 scaling down) applied per layer
+        vector<float> last_layer_loss_deltas; ///< Observed effect on loss (Delta L) for each layer operation
 
         // --- Penalization Derivative Tracking & Auto-Adjustment ---
         float penalty_factor = 0.09f;             ///< Active penalization multiplier
         float last_penalty_applied = 0.0f;        ///< Penalty magnitude at previous step
+        float last_penalty_direction = 1.0f;      ///< Direction of last penalty shift (+1.0 increased, -1.0 decreased)
+        float last_penalty_loss_delta = 0.0f;     ///< Observed effect on loss from last penalty operation
         float last_loss_observed = 0.0f;          ///< Previous loss observation
         float d_loss_d_penalty = 0.0f;            ///< Instantaneous empirical 1st derivative d(Loss) / d(Penalty)
         float last_d_loss_d_penalty = 0.0f;       ///< Previous 1st derivative for 2nd-order finite difference

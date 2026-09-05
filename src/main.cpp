@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
     size_t cli_steps = 25000;
     size_t cli_batch_size = 32;
     size_t cli_max_vocab_size = 10000; // Scalable up to 10k+ tokens
-    float cli_lr = 0.35f;
+    float cli_lr = 0.001f; // Slashed base LR to 0.001 for stable AdamW convergence
     bool cli_debug = false;
     bool cli_safe_mode = false; // Phase 0: single-flag ablation baseline
 
@@ -517,11 +517,11 @@ int main(int argc, char *argv[])
     ring2::TransformerConfig lm_cfg;
     lm_cfg.vocab_size = tokenizer.get_vocab_size();
     lm_cfg.max_seq_len = cli_max_seq_len;
-    lm_cfg.embed_dim = 128;
-    lm_cfg.num_heads = 8;
-    lm_cfg.num_kv_heads = 4; // Grouped-Query Attention (4 Query heads, 2 KV heads)
+    lm_cfg.embed_dim = 256;  // Bumped from 128 to 256 for wider representation and stability
+    lm_cfg.num_heads = 8;    // 8 attention heads (head_dim = 32)
+    lm_cfg.num_kv_heads = 4; // Grouped-Query Attention (4 KV heads)
     lm_cfg.num_layers = 5;
-    lm_cfg.ffn_dim = 256;
+    lm_cfg.ffn_dim = 512;    // Bumped from 256 to 512
 
     ring2::TransformerLM model(lm_cfg);
     model.print_architecture();
@@ -541,17 +541,15 @@ int main(int argc, char *argv[])
     train_cfg.steps = cli_steps;
     train_cfg.batch_size = cli_batch_size;
     train_cfg.learning_rate = cli_lr;
-    train_cfg.min_learning_rate = 0.0001f;
-    train_cfg.warmup_ratio = 0.02f;
+    train_cfg.min_learning_rate = 0.00001f;
+    train_cfg.warmup_ratio = 0.05f;
     train_cfg.weight_decay = 0.01f;
+    train_cfg.max_grad_norm = 1.0f; // Global gradient norm clipping to 1.0
     train_cfg.eval_interval = 50;
     train_cfg.initial_seq_len = cli_init_seq_len;
     train_cfg.max_seq_len = cli_max_seq_len;
     train_cfg.step_based_context_growth = true;
     train_cfg.safe_mode = cli_safe_mode; // --safe-mode: override adaptive modules off
-    // Start the curriculum on a larger slice (30% vs 5%): the tiny high-entropy
-    // filtered slice made early per-step loss read artificially high while the
-    // model was weakest. A wider slice better matches the corpus unigram bias.
     train_cfg.initial_dataset_ratio = 0.30f;
 
     ring3::LLMTrainer trainer(model, train_cfg);

@@ -107,6 +107,8 @@ namespace ring1
 
         // =========================================================================
         // FORMULA 3: Variance-Bounded Decoupled AdamW (Medium Importance)
+        // =========================================================================
+        // FORMULA 3: Variance-Bounded Decoupled AdamW (Medium Importance)
         // Standard first-order AdamW with second moment variance clipping
         // =========================================================================
         case WeightFormulaType::FORMULA_3_VARIANCE_BOUNDED_ADAMW:
@@ -116,7 +118,7 @@ namespace ring1
             delta_w = (effective_lr / precond) * m_hat;
             if (effective_wd > 0.0f)
             {
-                delta_w += (effective_lr * effective_wd * w - effective_lr * effective_wd * w); // Soft decay for medium importance
+                delta_w += effective_lr * effective_wd * w;
             }
             break;
         }
@@ -130,7 +132,7 @@ namespace ring1
             float precond = std::max(1e-7f, std::sqrt(std::max(0.0f, v_hat)) + eps);
             float standard_step = (effective_lr / precond) * m_hat;
             // Enhanced decoupled decay to compress near-zero noisy weights
-            float decay_step = sqrt(effective_lr) * (effective_wd * 2.0f) * w;
+            float decay_step = effective_lr * (effective_wd * 2.0f) * w;
             delta_w = 0.5f * standard_step + decay_step;
             break;
         }
@@ -142,7 +144,7 @@ namespace ring1
         }
         else
         {
-            delta_w = std::clamp(delta_w, -2.0f, 2.0f);
+            delta_w = std::clamp(delta_w, -0.05f, 0.05f);
         }
 
         return delta_w;
