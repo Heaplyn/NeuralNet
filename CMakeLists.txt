@@ -49,6 +49,7 @@ set(RING3_SOURCES
     src/ring3/image_dataset.cpp
     src/ring3/text_dataset.cpp
     src/ring3/data_loader.cpp
+    src/ring3/chrono_scheduler.cpp
     src/ring3/llm_trainer.cpp
     src/ring3/trainer.cpp
 )

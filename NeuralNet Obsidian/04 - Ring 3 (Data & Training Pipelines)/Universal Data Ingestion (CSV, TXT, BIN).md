@@ -1,6 +1,6 @@
 # 📂 Universal Multi-Format Data Ingestion (CSV, TXT, BIN, Code)
 
-The `ring3::UniversalDataLoader` engine enables the neural network to automatically discover, parse, structure, and train on **any `.csv`, `.txt`, `.bin`, `.json`, `.md`, or `.cpp/.hpp` code files** placed inside the `data/` directory.
+The `ring3::UniversalDataLoader` and `ring3::BackgroundDataStreamer` engines enable the neural network to automatically discover, parse, structure, and train on **any `.csv`, `.txt`, `.bin`, `.json`, `.md`, or `.cpp/.hpp` code files** placed inside the `data/` directory.
 
 ---
 
@@ -14,6 +14,33 @@ In real-world deep learning, data comes in many different file formats:
 - **Pre-Tokenized Binaries (`.bin`)**: Binary streams of 16-bit or 32-bit token IDs.
 
 `UniversalDataLoader` scans the `data/` directory recursively and unifies all these heterogeneous data sources into a single rich training stream.
+
+---
+
+## ⚡ Asynchronous Background Data Streaming (`BackgroundDataStreamer`)
+
+### Why Background Streaming?
+Traditional data loaders read all files into memory synchronously at startup. If you have 500 MB of CSV tables and C++ source files, the user would wait 30 seconds before step 1 even begins!
+
+With `BackgroundDataStreamer`:
+1. **Instant Bootstrap Start (<50ms)**: The loader reads only the first $N$ bootstrap files (e.g. `initial_bootstrap_data_files = 1`).
+2. **Tokenizer Dynamic Calibration**: `Tokenizer::fit_adaptive` determines initial BPE merges from the bootstrap sample immediately.
+3. **Concurrent Background Thread**: A background worker thread (`std::thread`) discovers, reads, parses, and tokenizes all remaining files in `data/` asynchronously without stealing time from training.
+4. **Periodic Token Ingestion**: Every 5 steps, `LLMTrainer` polls `streamer.poll_and_append(dataset)`, dynamically expanding `dataset.token_stream` in RAM.
+
+```mermaid
+graph TD
+    DataDir["data/ Directory (Multiple Files)"] --> Bootstrap["Synchronous Bootstrap (1st File)"]
+    Bootstrap --> FastTokenizer["Tokenizer::fit_adaptive (<50ms)"]
+    FastTokenizer --> TrainingStart["Training Starts Immediately @ Step 1"]
+    
+    DataDir --> BackgroundWorker["Background Thread (BackgroundDataStreamer)"]
+    BackgroundWorker --> AsyncTokenize["Asynchronous Parse & BPE Tokenize"]
+    AsyncTokenize --> TokenBuffer["Thread-Safe Buffered Queue (std::mutex)"]
+    
+    TokenBuffer -->|Poll Every 5 Steps| DatasetAppend["dataset.append_tokens()"]
+    DatasetAppend --> TrainingLoop["Live Training Stream Expansion"]
+```
 
 ---
 
@@ -33,7 +60,7 @@ graph TD
     CODE --> Corpus
     BIN --> BinaryStream["Pre-Tokenized Direct Stream"]
     
-    Corpus --> BPE["BPE Subword Tokenizer (512 Vocab)"]
+    Corpus --> BPE["BPE Subword Tokenizer (Dynamic Vocab)"]
     BPE --> Dataset["TextDataset Token Stream"]
     BinaryStream --> Dataset
 ```
@@ -60,72 +87,76 @@ Standard language models cannot easily parse raw comma-separated values (`"Canad
 
 ## 💻 Deep Code Breakdown
 
+### 1. `BackgroundDataStreamer::start()` and Background Tokenizer:
+
 Located in `src/ring3/data_loader.cpp`:
 
 ```cpp
-bool UniversalDataLoader::load_all_from_directory(
-    const std::string& directory_path,
-    std::string& out_corpus,
-    std::vector<int>& out_binary_tokens,
-    IngestionReport* report
-) {
-    if (!std::filesystem::exists(directory_path)) return false;
+void BackgroundDataStreamer::start() {
+    if (is_running.load() || all_done.load()) return;
+    is_running.store(true);
 
-    std::stringstream full_corpus;
-    IngestionReport local_rep;
+    worker_thread = std::thread([this]() {
+        while (is_running.load() && current_file_index < pending_files.size()) {
+            std::string fpath = pending_files[current_file_index++];
+            std::string ext = std::filesystem::path(fpath).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 
-    for (const auto& entry : std::filesystem::recursive_directory_iterator(directory_path)) {
-        if (!entry.is_regular_file()) continue;
+            std::string file_text;
+            std::vector<int> file_tokens;
 
-        auto path = entry.path();
-        std::string ext = path.extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-        std::string filepath_str = path.string();
-
-        // 1. Plain text & documentation
-        if (ext == ".txt" || ext == ".md" || ext == ".json") {
-            std::string txt = read_text_file(filepath_str);
-            full_corpus << txt;
-            local_rep.txt_files_count++;
-            local_rep.total_text_bytes += txt.size();
-        }
-        // 2. Tabular CSV records
-        else if (ext == ".csv" || ext == ".tsv") {
-            size_t row_count = 0;
-            std::string csv_txt = parse_csv_to_text(filepath_str, &row_count);
-            full_corpus << csv_txt;
-            local_rep.csv_files_count++;
-            local_rep.total_csv_rows += row_count;
-        }
-        // 3. Source code files
-        else if (ext == ".cpp" || ext == ".hpp" || ext == ".py" || ext == ".c" || ext == ".h") {
-            std::string code_txt = read_text_file(filepath_str);
-            full_corpus << code_txt;
-            local_rep.code_files_count++;
-            local_rep.total_text_bytes += code_txt.size();
-        }
-        // 4. Binary token streams
-        else if (ext == ".bin" || ext == ".dat") {
-            std::string bin_txt;
-            size_t prev_toks = out_binary_tokens.size();
-            if (parse_bin_file(filepath_str, bin_txt, out_binary_tokens)) {
-                full_corpus << bin_txt;
-                local_rep.bin_files_count++;
-                local_rep.total_binary_tokens += (out_binary_tokens.size() - prev_toks);
+            if (ext == ".csv" || ext == ".tsv") {
+                file_text = UniversalDataLoader::parse_csv_to_text(fpath);
+            } else if (ext == ".bin") {
+                UniversalDataLoader::parse_bin_file(fpath, file_text, file_tokens);
+            } else {
+                file_text = UniversalDataLoader::read_text_file(fpath);
             }
-        }
-    }
 
-    out_corpus += full_corpus.str();
-    if (report) *report = local_rep;
-    return true;
+            if (!file_text.empty() && tokenizer_ref) {
+                std::vector<int> encoded = tokenizer_ref->encode(file_text);
+                file_tokens.insert(file_tokens.end(), encoded.begin(), encoded.end());
+            }
+
+            if (!file_tokens.empty()) {
+                std::lock_guard<std::mutex> lock(stream_mutex);
+                buffered_tokens.insert(buffered_tokens.end(), file_tokens.begin(), file_tokens.end());
+                total_streamed_tokens += file_tokens.size();
+                total_streamed_files++;
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        }
+        all_done.store(true);
+        is_running.store(false);
+    });
+}
+```
+
+### 2. Thread-Safe Polling & Ingestion in `LLMTrainer::train()`:
+
+```cpp
+// Periodic poll from background token queue into active dataset
+if (background_streamer && (step % ring0::get_config().background_stream_poll_interval == 0)) {
+    size_t new_toks = background_streamer->poll_and_append(dataset);
+    if (new_toks > 0) {
+        cout << "\n  📡 [Background Streamer @ step " << step << "] Ingested +"
+             << new_toks << " new tokens from disk in background (Total active: "
+             << dataset.token_stream.size() << " tokens)\n";
+    }
 }
 ```
 
 ---
 
-## 🔗 Related Notes
-- [[04 - Ring 3 (Data & Training Pipelines)/Token Relevancy & Interpolated Parsing|Token Relevancy & Interpolated Parsing]]
-- [[04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth|Progressive Curriculum & Horizon Growth]]
-- [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Architecture]]
-- [[Index|Return to Master Index]]
+## 🎯 Verification & Telemetry Summary
+
+When running `nn_demo.exe`:
+```
+  📡 [Asynchronous Background Data Streamer Initialized]
+     • Bootstrap Files Loaded: 1 files (685 initial chars)
+     • Background Streaming Queue: 6 files remaining to stream concurrently
+
+  [Concurrent Subsystems] Chrono Engine: ACTIVE (517 ticks) | Background Streamed: 728,156 tokens
+  📡 [Background Streamer @ step 5] Ingested +728,156 new tokens from disk in background (Total active: 991,638 tokens)
+```

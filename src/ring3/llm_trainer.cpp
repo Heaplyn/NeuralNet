@@ -7,6 +7,8 @@
 #include <string>
 
 #include "ring3/llm_trainer.hpp"
+#include "ring3/data_loader.hpp"
+#include "ring3/chrono_scheduler.hpp"
 #include "ring0/loss.hpp"
 #include "ring0/config.hpp"
 #include "ring0/calculus_of_constructions.hpp"
@@ -500,6 +502,11 @@ namespace ring3
            << fixed << setprecision(1) << (tel.taylor_penalty_conf * 100.0f) << "%)\n";
         ss << "  [CoC Logic & Proof]   Proof Consistency: " << fixed << setprecision(1)
            << (tel.coc_proof_consistency * 100.0f) << "% | Type-Attention Prior: ACTIVE (alpha=0.25)\n";
+        if (tel.chrono_ticks > 0 || tel.background_streamed_tokens > 0)
+        {
+            ss << "  [Concurrent Subsystems] Chrono Engine: " << (tel.chrono_ticks > 0 ? "ACTIVE (" : "OFF (")
+               << tel.chrono_ticks << " ticks) | Background Streamed: " << tel.background_streamed_tokens << " tokens\n";
+        }
         ss << "------------------------------------------------------------------------\n";
         ss << "  [Adaptive Vocab 10k]  Active Vocab: " << tel.active_vocab_size << " / 10,000 subwords ("
            << fixed << setprecision(1) << (static_cast<float>(tel.active_vocab_size) / 10000.0f * 100.0f) << "% capacity)\n";
@@ -648,6 +655,17 @@ namespace ring3
                 metrics.coc_verified = proof_res.is_valid;
             }
 
+            if (chrono_engine)
+            {
+                chrono_engine->update_telemetry(step, metrics.loss, applied_lr, last_grad_norm, current_seq_len, optimizer.penalty_factor);
+                float consistency = 1.0f;
+                bool valid = true;
+                size_t v_count = 0;
+                chrono_engine->get_latest_coc_metrics(consistency, valid, v_count);
+                metrics.coc_proof_score = consistency;
+                metrics.coc_verified = valid;
+            }
+
             // 3. Update loss EMAs and track initial baseline
             if (!isnan(metrics.loss) && !isinf(metrics.loss) && !metrics.bad_batch_skipped)
             {
@@ -735,6 +753,19 @@ namespace ring3
                     {
                         last_curv_direction = -1.0f;
                         optimizer.config.curvature_scale = max(0.50f, optimizer.config.curvature_scale * 0.75f);
+                    }
+
+                    // 4c. Background Asynchronous Data Streamer Polling:
+                    if (background_streamer && (step % ring0::get_config().background_stream_poll_interval == 0))
+                    {
+                        size_t new_toks = background_streamer->poll_and_append(dataset);
+                        if (new_toks > 0)
+                        {
+                            cout << "\n  📡 [Background Streamer @ step " << step << "] Ingested +"
+                                 << new_toks << " new tokens from disk in background (Total active: "
+                                 << dataset.token_stream.size() << " tokens)\n";
+                            ring0::log_debug_file("DATA_STREAMER", "Appended " + to_string(new_toks) + " tokens from background streamer.");
+                        }
                     }
 
                     // Stability Watchdog: detect unexpected loss spikes relative to recent stable EMA
@@ -974,6 +1005,8 @@ namespace ring3
                 tel.active_context_length = current_seq_len;
                 tel.active_model_layers = model.num_active_layers;
                 tel.formula_stats = optimizer.last_formula_stats;
+                tel.chrono_ticks = chrono_engine ? chrono_engine->telemetry.total_chrono_ticks.load() : 0;
+                tel.background_streamed_tokens = background_streamer ? background_streamer->get_total_streamed_tokens() : 0;
 
                 print_benchmark_dashboard(tel, step, config.steps);
             }

@@ -133,8 +133,12 @@ namespace ring3
         size_t active_context_length = 0;
         size_t active_model_layers = 0;
         size_t total_parameters = 0;
+        size_t chrono_ticks = 0;
+        size_t background_streamed_tokens = 0;
         ring1::FormulaDistributionStats formula_stats;
     };
+
+    class ChronoAsyncEngine;
 
     /**
      * @class LLMTrainer
@@ -205,6 +209,12 @@ namespace ring3
 
         /// Callback fired whenever parameter expansion (neurogenesis) occurs
         function<void()> on_param_expansion = nullptr;
+
+        /// Optional pointer to background asynchronous data streamer
+        class BackgroundDataStreamer* background_streamer = nullptr;
+
+        /// Optional pointer to concurrent chrono asynchronous subsystem scheduler
+        class ChronoAsyncEngine* chrono_engine = nullptr;
 
         LLMTrainer(ring2::TransformerLM &lm, LLMTrainingConfig cfg = {});
 

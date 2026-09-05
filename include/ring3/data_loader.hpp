@@ -10,8 +10,13 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <thread>
+#include <mutex>
+#include <atomic>
 
 namespace ring3 {
+
+class TextDataset;
 
 /**
  * @struct IngestionReport
@@ -71,6 +76,53 @@ public:
         std::string& out_text,
         std::vector<int>& out_tokens
     );
+};
+
+/**
+ * @class BackgroundDataStreamer
+ * @brief Asynchronously streams and tokenizes data files in the background in real-time.
+ *        Allows the LLM trainer to begin training immediately on an initial bootstrap chunk
+ *        while additional files are discovered, loaded, and tokenized asynchronously without blocking training.
+ */
+class BackgroundDataStreamer {
+private:
+    std::vector<std::string> pending_files;
+    size_t current_file_index = 0;
+    std::atomic<bool> is_running{false};
+    std::atomic<bool> all_done{false};
+    std::thread worker_thread;
+    mutable std::mutex stream_mutex;
+    std::vector<int> buffered_tokens;
+    std::string buffered_text;
+    const ring2::Tokenizer* tokenizer_ref = nullptr;
+
+    size_t total_streamed_tokens = 0;
+    size_t total_streamed_files = 0;
+
+public:
+    BackgroundDataStreamer();
+    ~BackgroundDataStreamer();
+
+    // Discovers files in directory and enqueues them for background streaming
+    bool initialize(const std::string& directory_path,
+                    const ring2::Tokenizer& tokenizer,
+                    size_t bootstrap_files = 1,
+                    std::string* out_bootstrap_text = nullptr,
+                    std::vector<int>* out_bootstrap_tokens = nullptr);
+
+    // Starts background streaming worker thread
+    void start();
+
+    // Stops background streaming worker thread
+    void stop();
+
+    // Polls any newly tokenized background tokens and transfers them to TextDataset
+    size_t poll_and_append(TextDataset& dataset);
+
+    bool is_finished() const { return all_done.load(); }
+    size_t get_total_streamed_tokens() const { return total_streamed_tokens; }
+    size_t get_total_streamed_files() const { return total_streamed_files; }
+    size_t get_total_enqueued_files() const { return pending_files.size(); }
 };
 
 } // namespace ring3

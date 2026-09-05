@@ -127,6 +127,11 @@ namespace ring0
         size_t max_relevance_window = 64;           ///< Max window of parsed tokens around high-relevance tokens
         float relevance_interpolated_alpha = 0.55f; ///< Exponent for non-linear relevancy interpolation
 
+        // --- Asynchronous Background Data Streaming ---
+        bool enable_background_data_streaming = true;  ///< Stream and tokenize files in background without blocking
+        size_t background_stream_poll_interval = 5;    ///< Step cadence to pull buffered tokens into trainer
+        size_t initial_bootstrap_data_files = 1;       ///< Number of initial files to parse synchronously at startup
+
         // --- Singleton / Global Instance Access ---
         static RuntimeConfig &get_instance()
         {

@@ -452,4 +452,16 @@ size_t TextDataset::append_binary_file(const string& filepath, const ring2::Toke
     return added;
 }
 
+// Directly appends a vector of pre-encoded token IDs (used for background streaming ingestion)
+size_t TextDataset::append_tokens(const vector<int>& new_tokens, const vector<bool>& prompt_mask) {
+    if (new_tokens.empty()) return 0;
+    token_stream.insert(token_stream.end(), new_tokens.begin(), new_tokens.end());
+    if (prompt_mask.size() == new_tokens.size()) {
+        is_prompt_mask.insert(is_prompt_mask.end(), prompt_mask.begin(), prompt_mask.end());
+    } else {
+        is_prompt_mask.resize(token_stream.size(), false);
+    }
+    return new_tokens.size();
+}
+
 } // namespace ring3

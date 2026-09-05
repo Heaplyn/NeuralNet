@@ -7,6 +7,7 @@
 #include <string>
 
 #include "ring3/data_loader.hpp"
+#include "ring3/text_dataset.hpp"
 
 namespace ring3 {
 
@@ -257,6 +258,148 @@ bool UniversalDataLoader::load_all_from_directory(
     }
 
     return (local_rep.total_files_count > 0);
+}
+
+// --- Background Data Streamer Implementation ---
+
+BackgroundDataStreamer::BackgroundDataStreamer()
+    : is_running(false), all_done(false), current_file_index(0),
+      total_streamed_tokens(0), total_streamed_files(0), tokenizer_ref(nullptr) {}
+
+BackgroundDataStreamer::~BackgroundDataStreamer() {
+    stop();
+}
+
+bool BackgroundDataStreamer::initialize(
+    const std::string& directory_path,
+    const ring2::Tokenizer& tokenizer,
+    size_t bootstrap_files,
+    std::string* out_bootstrap_text,
+    std::vector<int>* out_bootstrap_tokens
+) {
+    tokenizer_ref = &tokenizer;
+    pending_files.clear();
+    current_file_index = 0;
+    total_streamed_tokens = 0;
+    total_streamed_files = 0;
+    all_done.store(false);
+
+    if (!std::filesystem::exists(directory_path) || !std::filesystem::is_directory(directory_path)) {
+        all_done.store(true);
+        return false;
+    }
+
+    try {
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(directory_path)) {
+            if (!entry.is_regular_file()) continue;
+            auto path = entry.path();
+            std::string ext = path.extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+            if (ext == ".txt" || ext == ".md" || ext == ".json" ||
+                ext == ".csv" || ext == ".tsv" ||
+                ext == ".cpp" || ext == ".hpp" || ext == ".c" || ext == ".h" || ext == ".py" || ext == ".js" ||
+                ext == ".bin") {
+                pending_files.push_back(path.string());
+            }
+        }
+    } catch (...) {}
+
+    if (pending_files.empty()) {
+        all_done.store(true);
+        return false;
+    }
+
+    // Process initial bootstrap files synchronously so training and tokenizer start immediately
+    size_t bootstrap_count = std::min(bootstrap_files, pending_files.size());
+    std::stringstream boot_ss;
+    for (size_t i = 0; i < bootstrap_count; ++i) {
+        const std::string& fpath = pending_files[i];
+        std::string ext = std::filesystem::path(fpath).extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+        if (ext == ".csv" || ext == ".tsv") {
+            size_t rows = 0;
+            boot_ss << UniversalDataLoader::parse_csv_to_text(fpath, &rows) << "\n";
+        } else if (ext == ".bin" && out_bootstrap_tokens) {
+            std::string bin_txt;
+            UniversalDataLoader::parse_bin_file(fpath, bin_txt, *out_bootstrap_tokens);
+            if (!bin_txt.empty()) boot_ss << bin_txt << "\n";
+        } else {
+            boot_ss << UniversalDataLoader::read_text_file(fpath) << "\n";
+        }
+        total_streamed_files++;
+    }
+
+    if (out_bootstrap_text) {
+        *out_bootstrap_text = boot_ss.str();
+    }
+
+    current_file_index = bootstrap_count;
+    if (current_file_index >= pending_files.size()) {
+        all_done.store(true);
+    }
+
+    return true;
+}
+
+void BackgroundDataStreamer::start() {
+    if (is_running.load() || all_done.load()) return;
+    is_running.store(true);
+
+    worker_thread = std::thread([this]() {
+        while (is_running.load() && current_file_index < pending_files.size()) {
+            std::string fpath = pending_files[current_file_index++];
+            std::string ext = std::filesystem::path(fpath).extension().string();
+            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+            std::string file_text;
+            std::vector<int> file_tokens;
+
+            if (ext == ".csv" || ext == ".tsv") {
+                size_t rows = 0;
+                file_text = UniversalDataLoader::parse_csv_to_text(fpath, &rows);
+            } else if (ext == ".bin") {
+                UniversalDataLoader::parse_bin_file(fpath, file_text, file_tokens);
+            } else {
+                file_text = UniversalDataLoader::read_text_file(fpath);
+            }
+
+            if (!file_text.empty() && tokenizer_ref) {
+                std::vector<int> encoded = tokenizer_ref->encode(file_text);
+                file_tokens.insert(file_tokens.end(), encoded.begin(), encoded.end());
+            }
+
+            if (!file_tokens.empty()) {
+                std::lock_guard<std::mutex> lock(stream_mutex);
+                buffered_tokens.insert(buffered_tokens.end(), file_tokens.begin(), file_tokens.end());
+                total_streamed_tokens += file_tokens.size();
+                total_streamed_files++;
+            }
+
+            // Yield small duration to yield I/O and CPU to training worker threads
+            std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        }
+        all_done.store(true);
+        is_running.store(false);
+    });
+}
+
+void BackgroundDataStreamer::stop() {
+    is_running.store(false);
+    if (worker_thread.joinable()) {
+        worker_thread.join();
+    }
+}
+
+size_t BackgroundDataStreamer::poll_and_append(TextDataset& dataset) {
+    std::vector<int> incoming;
+    {
+        std::lock_guard<std::mutex> lock(stream_mutex);
+        if (buffered_tokens.empty()) return 0;
+        incoming.swap(buffered_tokens);
+    }
+    size_t count = dataset.append_tokens(incoming);
+    return count;
 }
 
 } // namespace ring3

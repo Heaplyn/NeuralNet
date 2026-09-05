@@ -17,6 +17,7 @@ Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains docume
 - [[01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus|Loss Formulations, Scale Multipliers & Derivatives]]
 - [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor (nth-Order Foresight & Trajectory Reward)]]
 - [[01 - Ring 0 (Core Math & Hardware)/Taylor Penalty Prediction & Confidence Gating|Taylor Penalty Prediction & Multi-Factor Confidence Gating]]
+- [[01 - Ring 0 (Core Math & Hardware)/Calculus of Constructions & Dependent-Typed Neural Reasoning|Calculus of Constructions (CoC) & Dependent-Typed Reasoning]]
 - [[01 - Ring 0 (Core Math & Hardware)/Numerical Stability & NaN Prevention Physics|Numerical Stability, NaN Prevention & Gradient Sanitization Physics]]
 - [[01 - Ring 0 (Core Math & Hardware)/CUDA & Hardware Acceleration Engine|CUDA GPU Acceleration & OpenMP/AVX CPU Fallback]]
 - [[01 - Ring 0 (Core Math & Hardware)/Config & Telemetry Systems|Runtime Configuration & Telemetry Hooks]]
@@ -37,8 +38,9 @@ Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains docume
 - [[03 - Ring 2 (Models & Transformers)/Autoregressive KV-Cache Generation|Autoregressive KV-Cached O(1) Streaming Generation]]
 
 ### 🚀 [[04 - Ring 3 (Data & Training Pipelines)/Token Relevancy & Interpolated Parsing|04 - Ring 3 (Data & Training Pipelines)]]
+- [[04 - Ring 3 (Data & Training Pipelines)/Concurrent Chrono Subsystems Engine|Concurrent Chrono Subsystems Engine (Multi-Threaded Co-Pilots)]]
+- [[04 - Ring 3 (Data & Training Pipelines)/Universal Data Ingestion (CSV, TXT, BIN)|Universal Multi-Format Data Ingestion & Background Streaming (CSV, TXT, BIN)]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Real-Time Benchmark & Telemetry Dashboard|Real-Time Benchmark & Telemetry Dashboard]]
-- [[04 - Ring 3 (Data & Training Pipelines)/Universal Data Ingestion (CSV, TXT, BIN)|Universal Multi-Format Data Ingestion Engine (CSV, TXT, BIN)]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Token Relevancy & Interpolated Parsing|Token Relevancy & Non-Linear Interpolated Context Parsing]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth|Progressive Curriculum, Horizon Growth & Fast-Track Depth]]
 - [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Optimization Loop & Dynamic Schedules]]

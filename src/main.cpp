@@ -6,6 +6,7 @@
 #include "ring1/dependent_type_attention.hpp"
 #include "ring2/vocab_manager.hpp"
 #include "ring3/data_loader.hpp"
+#include "ring3/chrono_scheduler.hpp"
 #include <iostream>
 #include <iomanip>
 #include <chrono>
@@ -401,10 +402,28 @@ int main(int argc, char *argv[])
     vector<int> binary_tokens;
     ring3::IngestionReport report;
 
-    bool loaded_any = ring3::UniversalDataLoader::load_all_from_directory("data", text_corpus, binary_tokens, &report);
-    if (!loaded_any || text_corpus.empty())
+    ring2::Tokenizer tokenizer;
+    ring3::BackgroundDataStreamer data_streamer;
+    bool using_background_stream = ring0::get_config().enable_background_data_streaming;
+
+    if (using_background_stream)
     {
-        text_corpus = load_words_database();
+        bool init_ok = data_streamer.initialize("data", tokenizer, ring0::get_config().initial_bootstrap_data_files, &text_corpus, &binary_tokens);
+        if (!init_ok || text_corpus.empty())
+        {
+            text_corpus = load_words_database();
+        }
+        cout << "  📡 [Asynchronous Background Data Streamer Initialized]\n";
+        cout << "     • Bootstrap Files Loaded: " << data_streamer.get_total_streamed_files() << " files (" << text_corpus.size() << " initial chars)\n";
+        cout << "     • Background Streaming Queue: " << (data_streamer.get_total_enqueued_files() - data_streamer.get_total_streamed_files()) << " files remaining to stream concurrently\n\n";
+    }
+    else
+    {
+        bool loaded_any = ring3::UniversalDataLoader::load_all_from_directory("data", text_corpus, binary_tokens, &report);
+        if (!loaded_any || text_corpus.empty())
+        {
+            text_corpus = load_words_database();
+        }
     }
 
     // Ingest additional files specified via CLI
@@ -466,15 +485,17 @@ int main(int argc, char *argv[])
             "In the deep library, they found books filled with wonder, light, and friendship for all people.\n";
     }
 
-    cout << "  📊 [Universal Data Ingestion Summary]\n";
-    cout << "     • Total Files Discovered: " << report.total_files_count << " files across data/\n";
-    cout << "     • Plain Text Documents (.txt, .md, .json): " << report.txt_files_count << " files\n";
-    cout << "     • Tabular Datasets (.csv, .tsv): " << report.csv_files_count << " files (" << report.total_csv_rows << " structured records)\n";
-    cout << "     • Source Code Files (.cpp, .hpp, .py): " << report.code_files_count << " files\n";
-    cout << "     • Binary Files (.bin): " << report.bin_files_count << " files (" << report.total_binary_tokens << " raw tokens)\n";
-    cout << "     • Combined Training Corpus: " << text_corpus.size() << " characters\n\n";
+    if (!using_background_stream)
+    {
+        cout << "  📊 [Universal Data Ingestion Summary]\n";
+        cout << "     • Total Files Discovered: " << report.total_files_count << " files across data/\n";
+        cout << "     • Plain Text Documents (.txt, .md, .json): " << report.txt_files_count << " files\n";
+        cout << "     • Tabular Datasets (.csv, .tsv): " << report.csv_files_count << " files (" << report.total_csv_rows << " structured records)\n";
+        cout << "     • Source Code Files (.cpp, .hpp, .py): " << report.code_files_count << " files\n";
+        cout << "     • Binary Files (.bin): " << report.bin_files_count << " files (" << report.total_binary_tokens << " raw tokens)\n";
+        cout << "     • Combined Training Corpus: " << text_corpus.size() << " characters\n\n";
+    }
 
-    ring2::Tokenizer tokenizer;
     cout << "  🧬 [Dynamic Factor-Based Token Sizing]\n";
     ring2::DynamicVocabFactors v_factors = tokenizer.fit_adaptive(text_corpus, cli_max_vocab_size);
     cout << "     • Corpus Volume Analyzed: " << (v_factors.corpus_bytes / 1024) << " KB (" << v_factors.corpus_bytes << " bytes)\n";
@@ -483,6 +504,11 @@ int main(int argc, char *argv[])
     cout << "     • Subword Compression Efficiency: " << fixed << setprecision(2) << v_factors.compression_ratio << " chars/token\n";
     cout << "     • Factor-Optimized Vocab Capacity: " << tokenizer.get_vocab_size() << " / " << cli_max_vocab_size << " subwords ("
          << tokenizer.merges.size() << " BPE merges extracted)\n\n";
+
+    if (using_background_stream)
+    {
+        data_streamer.start();
+    }
 
     // 3. Dataset preparation
     size_t seq_len = cli_init_seq_len;
@@ -562,6 +588,19 @@ int main(int argc, char *argv[])
     train_cfg.initial_dataset_ratio = 0.30f;
 
     ring3::LLMTrainer trainer(model, train_cfg);
+    trainer.background_streamer = using_background_stream ? &data_streamer : nullptr;
+
+    // Launch Concurrent Multi-Part Chrono Subsystems Engine
+    ring3::ChronoAsyncEngine chrono_engine;
+    chrono_engine.attach_components(&model, &vocab_mgr);
+    chrono_engine.start();
+    trainer.chrono_engine = &chrono_engine;
+    cout << "  ⏱️ [Concurrent Chrono Subsystem Engine Active]\n";
+    cout << "     • Meta-Loss Optimizer Thread:        120ms interval\n";
+    cout << "     • Taylor Trajectory Forecaster:      180ms interval\n";
+    cout << "     • CoC Formal Proof Verifier:         250ms interval\n";
+    cout << "     • Semantic Vocab Cluster Miner:      400ms interval\n";
+    cout << "     • Stability Watchdog Auditor:         60ms interval\n\n";
 
     // Coupled Parameter & Vocabulary Expansion: Whenever model expands capacity, expand vocabulary too
     trainer.on_param_expansion = [&]()
@@ -704,6 +743,12 @@ int main(int argc, char *argv[])
                 cout << tokenizer.decode(t) << flush; }, true);
             cout << "\"\n----------------------------------\n\n";
         });
+
+    chrono_engine.stop();
+    if (using_background_stream)
+    {
+        data_streamer.stop();
+    }
 
     auto end_train = chrono::high_resolution_clock::now();
     chrono::duration<double> train_duration = end_train - start_train;

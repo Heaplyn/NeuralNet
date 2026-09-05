@@ -96,6 +96,9 @@ public:
 
     /// Ingests and appends a binary file (.bin: raw text or token ids) to the active token stream
     size_t append_binary_file(const string& filepath, const ring2::Tokenizer& tokenizer);
+
+    /// Directly appends a vector of pre-encoded token IDs (used for background streaming ingestion)
+    size_t append_tokens(const vector<int>& new_tokens, const vector<bool>& prompt_mask = {});
 };
 
 } // namespace ring3

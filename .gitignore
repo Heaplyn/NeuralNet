@@ -23,7 +23,10 @@ checkpoints/*.bin
 data/*.bin
 
 # Large standard datasets (downloadable; not project-specific source)
-# Kept: corpus.txt, *.csv, data/code_dataset/ (project inputs)
+# Kept: corpus.txt, Global_Education.csv, data/code_dataset/ (project inputs)
+data/train.csv
+data/test.csv
+data/validation.csv
 data/fashion_mnist/
 *-idx3-ubyte
 *-idx1-ubyte
