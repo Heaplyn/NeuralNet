@@ -20,11 +20,11 @@ namespace ring1
      */
     struct OptimizerConfig
     {
-        float learning_rate = 0.02f;  ///< Base step size
-        float momentum = 0.9f;        ///< Momentum decay coefficient beta
+        float learning_rate = 0.002f; ///< Base step size
+        float momentum = 0.8f;        ///< Momentum decay coefficient beta
         float weight_decay = 1e-4f;   ///< L2 weight regularization
-        float max_grad_norm = 1.5f;   ///< Maximum gradient norm for clipping
-        float loss_gap_factor = 0.6f; ///< Multiplier for (currentLoss - minLoss) adjustment
+        float max_grad_norm = 6.0f;   ///< Maximum gradient norm for clipping
+        float loss_gap_factor = 0.4f; ///< Multiplier for (currentLoss - minLoss) adjustment
     };
 
     /**

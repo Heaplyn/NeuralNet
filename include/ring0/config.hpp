@@ -115,7 +115,7 @@ namespace ring0
         // --- Hardware & Parallel Execution ---
         size_t num_threads = 0;               ///< Number of OpenMP threads (0 = auto / max hardware cores)
         bool enable_avx2_acceleration = true; ///< Enable AVX2/FMA vector acceleration
-        bool enable_cuda_backend = false;     ///< Enable CUDA hardware tensor offloading
+        bool enable_cuda_backend = true;      ///< Enable CUDA hardware tensor offloading
 
         // --- Rapid Loss Descent Acceleration (5.0 -> 2.0) ---
         bool enable_loss_descent_acceleration = true; ///< Enables adaptive focal modulation & gravity surge

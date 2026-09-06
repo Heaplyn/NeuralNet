@@ -57,7 +57,89 @@ namespace ring0
         loss_history.clear();
     }
 
-    // ... keep mse / cross_entropy / gradients exactly as they are ...
+    float Loss::mse(const Matrix &predictions, const Matrix &targets)
+    {
+        if (predictions.rows == 0 || predictions.cols == 0)
+            return 0.0f;
+
+        double sum = 0.0;
+        for (size_t i = 0; i < predictions.data.size(); ++i)
+        {
+            double delta = static_cast<double>(predictions.data[i] - targets.data[i]);
+            sum += delta * delta;
+        }
+        return static_cast<float>(sum / static_cast<double>(predictions.data.size()));
+    }
+
+    Matrix Loss::mse_gradient(const Matrix &predictions, const Matrix &targets)
+    {
+        Matrix gradient(predictions.rows, predictions.cols);
+        float scale = 2.0f / static_cast<float>(max<size_t>(1, predictions.data.size()));
+        for (size_t i = 0; i < gradient.data.size(); ++i)
+            gradient.data[i] = scale * (predictions.data[i] - targets.data[i]);
+        return gradient;
+    }
+
+    float Loss::cross_entropy(const Matrix &predictions, const Matrix &targets)
+    {
+        if (predictions.rows == 0 || predictions.cols == 0)
+            return 0.0f;
+
+        double total = 0.0;
+        for (size_t row = 0; row < predictions.rows; ++row)
+        {
+            float row_max = predictions(row, 0);
+            for (size_t col = 1; col < predictions.cols; ++col)
+                row_max = max(row_max, predictions(row, col));
+
+            double exp_sum = 0.0;
+            for (size_t col = 0; col < predictions.cols; ++col)
+                exp_sum += exp(static_cast<double>(predictions(row, col) - row_max));
+
+            for (size_t col = 0; col < predictions.cols; ++col)
+            {
+                float target = targets(row, col);
+                if (target > 0.0f)
+                {
+                    double probability = exp(static_cast<double>(predictions(row, col) - row_max)) / exp_sum;
+                    total -= static_cast<double>(target) * log(max(1e-12, probability));
+                }
+            }
+        }
+        return static_cast<float>(total / static_cast<double>(predictions.rows));
+    }
+
+    Matrix Loss::cross_entropy_gradient(const Matrix &predictions, const Matrix &targets)
+    {
+        Matrix gradient(predictions.rows, predictions.cols);
+        for (size_t row = 0; row < predictions.rows; ++row)
+        {
+            float row_max = predictions(row, 0);
+            for (size_t col = 1; col < predictions.cols; ++col)
+                row_max = max(row_max, predictions(row, col));
+
+            double exp_sum = 0.0;
+            for (size_t col = 0; col < predictions.cols; ++col)
+                exp_sum += exp(static_cast<double>(predictions(row, col) - row_max));
+
+            for (size_t col = 0; col < predictions.cols; ++col)
+            {
+                float probability = static_cast<float>(exp(static_cast<double>(predictions(row, col) - row_max)) / exp_sum);
+                gradient(row, col) = (probability - targets(row, col)) / static_cast<float>(predictions.rows);
+            }
+        }
+        return gradient;
+    }
+
+    float Loss::compute(LossType type, const Matrix &predictions, const Matrix &targets)
+    {
+        return type == LossType::MSE ? mse(predictions, targets) : cross_entropy(predictions, targets);
+    }
+
+    Matrix Loss::gradient(LossType type, const Matrix &predictions, const Matrix &targets)
+    {
+        return type == LossType::MSE ? mse_gradient(predictions, targets) : cross_entropy_gradient(predictions, targets);
+    }
 
     // Tuned pyramid: milder clamping + better curvature response
     void LossDerivativePyramid::build(const vector<float> &raw_losses,
