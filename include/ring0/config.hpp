@@ -51,7 +51,7 @@ namespace ring0
         size_t default_thought_loops = 3;         ///< Number of recursive reasoning loops per layer
         size_t max_chain_reflection_cycles = 5;   ///< Multi-pass reflection cycles through the entire thought tree
         float thought_convergence_tol = 1e-4f;    ///< Convergence threshold for early exit in thought loops
-        float thought_damping = 0.65f;            ///< Residual momentum damping across thought chain loops
+        float thought_damping = 0.88f;            ///< Residual momentum damping across thought chain loops
         bool record_thought_history = true;       ///< Maintain internal trace of thought vectors for auditing
 
         // --- Calculus of Constructions (CoC) & Dependent Types ---
@@ -64,17 +64,21 @@ namespace ring0
 
         // --- Optimizer & Directional Physics ---
         bool enable_damped_operation_reversal = true;
-        float reversal_shrink_factor = 0.15f; // stronger reversal (was 0.20)
-        float reversal_loss_sensitivity = 0.8f;
-        float global_gradient_clip_norm = 0.65f; ///< Tighter clip (was 1.0) — stops the |g| 3–10 explosions
-        float logit_soft_cap = 20.0f;
-        float adamw_beta1 = 0.91f;
-        float adamw_beta2 = 0.82f;
-        float adamw_eps = 1e-8f;
-        float base_weight_decay = 0.01f;
-        float max_trust_region_step = 0.45f; // when loss is low / stable
-        float min_trust_region_step = 0.14f; // when loss is high / unstable (was 0.06)
+        float reversal_shrink_factor = 0.20f;
+        float reversal_loss_sensitivity = 0.65f;
 
+        float global_gradient_clip_norm = 0.50f;
+
+        float logit_soft_cap = 12.0f;
+
+        float adamw_beta1 = 0.90f;
+        float adamw_beta2 = 0.95f;
+        float adamw_eps = 1e-8f;
+
+        float base_weight_decay = 0.01f;
+
+        float max_trust_region_step = 0.20f;
+        float min_trust_region_step = 0.05f;
         // --- Stability Watchdog & Weight Rollback Recovery ---
         bool enable_weight_rollback_recovery = true;
         float bad_batch_loss_threshold = 7.5f; // catch a bit earlier
@@ -101,12 +105,12 @@ namespace ring0
         float curvature_scale_floor = 0.05f; // raised from 0.002 (too extreme)
         float curvature_scale_ceiling = 2.50f;
         // --- Generation & Sampling Hyperparameters ---
-        float default_temperature = 0.60f;        ///< Softmax logits temperature
+        float default_temperature = 0.80f;        ///< Softmax logits temperature
         size_t default_top_k = 50;                ///< Top-K candidate cutoff
-        float default_top_p = 0.62f;              ///< Nucleus cumulative probability threshold
-        float default_min_p = 0.002f;             ///< Minimum probability relative to top token
-        float default_repetition_penalty = 1.10f; ///< Frequency/repetition penalty for recent tokens
-        size_t default_lookback_window = 32;      ///< Number of prior tokens checked for repetition
+        float default_top_p = 0.95f;              ///< Nucleus cumulative probability threshold
+        float default_min_p = 0.005f;             ///< Minimum probability relative to top token
+        float default_repetition_penalty = 1.05f; ///< Frequency/repetition penalty for recent tokens
+        size_t default_lookback_window = 128;     ///< Number of prior tokens checked for repetition
 
         // --- Hardware & Parallel Execution ---
         size_t num_threads = 0;               ///< Number of OpenMP threads (0 = auto / max hardware cores)
@@ -124,8 +128,8 @@ namespace ring0
         // --- Token Relevancy & Interpolated Context Parsing ---
         bool enable_token_relevance_parsing = true; ///< Algorithm based on token relevance with dynamic parsed window
         size_t min_relevance_window = 8;            ///< Min window of parsed tokens around low-relevance tokens
-        size_t max_relevance_window = 64;           ///< Max window of parsed tokens around high-relevance tokens
-        float relevance_interpolated_alpha = 0.55f; ///< Exponent for non-linear relevancy interpolation
+        size_t max_relevance_window = 128;          ///< Max window of parsed tokens around high-relevance tokens
+        float relevance_interpolated_alpha = 0.65f; ///< Exponent for non-linear relevancy interpolation
 
         // --- Asynchronous Background Data Streaming ---
         bool enable_background_data_streaming = true; ///< Stream and tokenize files in background without blocking
