@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
+                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Activation Functions"
+              "title": "4-Formula Dynamic Weight Physics"
             }
           }
         ]
@@ -99,7 +99,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
+                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -118,7 +118,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
+                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -161,7 +161,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
+                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -188,10 +188,11 @@
       "bases:Create new base": false
     }
   },
-  "active": "bfce69c0989637f6",
+  "active": "38140cb836345e1e",
   "lastOpenFiles": [
-    "00 - Overview & Architecture/Ring Dependency Hierarchy.md",
     "00 - Overview & Architecture/Architecture Map.md",
+    "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
+    "00 - Overview & Architecture/Ring Dependency Hierarchy.md",
     "01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus.md",
     "05 - Theoretical Foundations & Physics/Adaptive Focal Loss Theory.md",
     "06 - Reference Dictionaries & Practical Guides/Practical Guide - Why Neural Nets Overshoot & How to Stabilize.md",
@@ -216,7 +217,6 @@
     "03 - Ring 2 (Models, Vocabulary & Inference)/KV-Cache & Generation Inference.md",
     "00 - Overview & Architecture/Beginner Roadmap & Core Concepts.md",
     "01 - Ring 0 (Core Math & Hardware)/Loss Derivative Pyramid & Curvature Scaling.md",
-    "05 - Theoretical Foundations & Physics/Information Geometry & Loss Dynamics.md",
     "03 - Ring 2 (Models, Vocabulary & Inference)",
     "01 - Ring 0 (Core Math & Hardware)/Taylor Penalty Prediction & Confidence Gating.md.tmp.36356.642b18b076bf",
     "05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization.md.tmp.36356.3e19a1c0c06e",
