@@ -45,6 +45,7 @@ Welcome to the **NeuralNet Obsidian Knowledge Base**. This vault contains docume
 - [[04 - Ring 3 (Data & Training Pipelines)/Concurrent Chrono Subsystems Engine|Concurrent Chrono Subsystems Engine (Multi-Threaded Co-Pilots)]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Universal Data Ingestion (CSV, TXT, BIN)|Universal Multi-Format Data Ingestion & Background Streaming (CSV, TXT, BIN)]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Real-Time Benchmark & Telemetry Dashboard|Real-Time Benchmark & Telemetry Dashboard]]
+- [[04 - Ring 3 (Data & Training Pipelines)/Recognition Benchmarks - Letters MNIST Fashion-MNIST|Recognition Benchmarks: A-Z, MNIST & Fashion-MNIST]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Token Relevancy & Interpolated Parsing|Token Relevancy & Non-Linear Interpolated Context Parsing]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Progressive Curriculum & Horizon Growth|Progressive Curriculum, Horizon Growth & Fast-Track Depth]]
 - [[04 - Ring 3 (Data & Training Pipelines)/Evaluation & Checkpoint Lifecycle|Evaluation Metrics & Multi-File Checkpoint Lifecycle]]

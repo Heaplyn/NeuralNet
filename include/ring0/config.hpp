@@ -104,6 +104,23 @@ namespace ring0
         bool enable_rayleigh_curvature = true;
         float curvature_scale_floor = 0.05f; // raised from 0.002 (too extreme)
         float curvature_scale_ceiling = 2.50f;
+
+        // --- Dense Recognition Benchmarks ---
+        size_t recognition_letter_epochs = 120;
+        size_t recognition_image_epochs = 8;
+        size_t recognition_letter_batch_size = 64;
+        size_t recognition_image_batch_size = 128;
+        size_t recognition_image_train_limit = 10000;
+        size_t recognition_image_test_limit = 2000;
+        float recognition_learning_rate = 0.001f;
+        float recognition_weight_decay = 0.01f;
+        float recognition_max_grad_norm = 1.0f;
+        float recognition_taylor_weight = 0.5f;
+        bool recognition_enable_growth = true;
+        bool recognition_enable_meta_loss = true;
+        bool recognition_enable_multi_formula = true;
+        bool recognition_enable_taylor = true;
+
         // --- Generation & Sampling Hyperparameters ---
         float default_temperature = 0.80f;        ///< Softmax logits temperature
         size_t default_top_k = 50;                ///< Top-K candidate cutoff

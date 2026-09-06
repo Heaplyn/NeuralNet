@@ -20,6 +20,7 @@ namespace ring3
                              TrainingConfig train_cfg)
         : net(network), optimizer(opt), growth_controller(growth_cfg), config(train_cfg)
     {
+        ring0::Loss::clear_history();
         optimizer.init(net.layers);
 
         ring1::AdamWConfig adaptive_config;
@@ -114,7 +115,9 @@ namespace ring3
 
         ring0::Loss::record_loss(loss);
         adaptive_optimizer.update_penalization_derivative(loss, delta_loss);
-        ring0::TaylorTrajectory forecast = loss_forecaster.observe(loss_history);
+        ring0::TaylorTrajectory forecast;
+        if (config.enable_taylor_forecast)
+            forecast = loss_forecaster.observe(loss_history);
 
         ring1::MetaOptimizationOutput meta_output;
         if (config.enable_meta_loss_opt)
@@ -144,9 +147,18 @@ namespace ring3
         float gradient_scale = clip_scale * loss_scale;
 
         adaptive_optimizer.config.enable_multi_formula = config.enable_multi_formula_opt;
-        adaptive_optimizer.config.curvature_scale = config.enable_meta_loss_opt ? meta_output.curvature_scale : 1.0f;
-        float lr_scale = config.enable_meta_loss_opt ? meta_output.lr_step_modulator : 1.0f;
-        adaptive_optimizer.set_learning_rate(config.learning_rate * lr_scale);
+        float taylor_weight = std::clamp(config.taylor_forecast_weight, 0.0f, 1.0f);
+        float taylor_lr_scale = forecast.valid ? forecast.lr_foresight_scale : 1.0f;
+        float taylor_curvature_scale = forecast.valid ? forecast.curvature_foresight : 1.0f;
+        float meta_lr_scale = config.enable_meta_loss_opt ? meta_output.lr_step_modulator : 1.0f;
+        float lr_scale = meta_lr_scale * ((1.0f - taylor_weight) + taylor_weight * taylor_lr_scale);
+        float curvature_scale = (config.enable_meta_loss_opt ? meta_output.curvature_scale : 1.0f) *
+                                ((1.0f - taylor_weight) + taylor_weight * taylor_curvature_scale);
+        adaptive_optimizer.config.curvature_scale = std::clamp(curvature_scale, 0.5f, 1.5f);
+        adaptive_optimizer.set_learning_rate(config.learning_rate * std::clamp(lr_scale, 0.5f, 1.5f));
+        last_taylor_lr_scale = taylor_lr_scale;
+        last_taylor_curvature_scale = taylor_curvature_scale;
+        last_meta_lr_scale = meta_lr_scale;
 
         size_t parameter_index = 0;
         for (auto &layer : net.layers)
@@ -164,6 +176,10 @@ namespace ring3
         adaptive_optimizer.timestep++;
         adaptive_optimizer.update_attribution_feedback(delta_loss);
         adaptive_optimizer.self_adjust_by_loss(loss, ema_loss, ring0::Loss::get_min_loss());
+        // The legacy self-adjuster can propose transformer-scale momentum values;
+        // dense recognition keeps AdamW beta parameters in their valid range.
+        adaptive_optimizer.config.beta1 = std::clamp(adaptive_optimizer.config.beta1, 0.50f, 0.99f);
+        adaptive_optimizer.config.beta2 = std::clamp(adaptive_optimizer.config.beta2, 0.90f, 0.999f);
 
         if (config.enable_meta_loss_opt)
         {

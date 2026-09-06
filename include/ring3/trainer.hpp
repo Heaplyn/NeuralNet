@@ -25,7 +25,7 @@ namespace ring3
      */
     struct TrainingConfig
     {
-        size_t epochs = 100;                                       ///< Total number of training epochs
+        size_t epochs = 2000;                                      ///< Total number of training epochs
         size_t batch_size = 32;                                    ///< Mini-batch size
         ring0::LossType loss_type = ring0::LossType::CrossEntropy; ///< Selected loss function
         bool enable_growth_controller = true;                      ///< Whether dynamic neuron addition is enabled
@@ -35,6 +35,8 @@ namespace ring3
         float max_grad_norm = 1.0f;                                ///< Global gradient norm clip
         bool enable_meta_loss_opt = true;                          ///< Online meta-loss modulation
         bool enable_multi_formula_opt = true;                      ///< AdamW multi-formula updates
+        bool enable_taylor_forecast = true;                        ///< Predictive loss-trajectory modulation
+        float taylor_forecast_weight = 0.5f;                       ///< Blend weight for direct Taylor signals
     };
 
     /**
@@ -64,6 +66,9 @@ namespace ring3
         ring0::TaylorTrajectoryPredictor loss_forecaster;
         ring2::GrowthController growth_controller;
         TrainingConfig config;
+        float last_taylor_lr_scale = 1.0f;
+        float last_taylor_curvature_scale = 1.0f;
+        float last_meta_lr_scale = 1.0f;
 
     private:
         vector<float> loss_history;

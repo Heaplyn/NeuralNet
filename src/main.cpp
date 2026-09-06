@@ -24,15 +24,18 @@ static size_t parse_test_letter(int argc, char *argv[])
 
 static ring3::TrainingConfig adaptive_config(size_t epochs, size_t batch_size, float learning_rate)
 {
+    const auto &runtime = ring0::get_config();
     ring3::TrainingConfig config;
     config.epochs = epochs;
     config.batch_size = batch_size;
     config.learning_rate = learning_rate;
-    config.weight_decay = 0.01f;
-    config.max_grad_norm = 1.0f;
-    config.enable_growth_controller = true;
-    config.enable_meta_loss_opt = true;
-    config.enable_multi_formula_opt = true;
+    config.weight_decay = runtime.recognition_weight_decay;
+    config.max_grad_norm = runtime.recognition_max_grad_norm;
+    config.enable_growth_controller = runtime.recognition_enable_growth;
+    config.enable_meta_loss_opt = runtime.recognition_enable_meta_loss;
+    config.enable_multi_formula_opt = runtime.recognition_enable_multi_formula;
+    config.enable_taylor_forecast = runtime.recognition_enable_taylor;
+    config.taylor_forecast_weight = runtime.recognition_taylor_weight;
     return config;
 }
 
@@ -46,7 +49,10 @@ static float train_letter_database(int argc, char *argv[])
     model.add_dense(64, ring3::LetterDataset::NUM_CLASSES, ring0::ActivationType::None);
 
     ring1::GradientDescent compatibility_optimizer;
-    ring3::TrainingConfig config = adaptive_config(120, 64, 0.001f);
+    const auto &runtime = ring0::get_config();
+    ring3::TrainingConfig config = adaptive_config(runtime.recognition_letter_epochs,
+                                                   runtime.recognition_letter_batch_size,
+                                                   runtime.recognition_learning_rate);
     ring3::RingTrainer trainer(model, compatibility_optimizer, {}, config);
 
     auto train_start = chrono::steady_clock::now();
@@ -57,10 +63,12 @@ static float train_letter_database(int argc, char *argv[])
                       if (metrics.epoch == 1 || metrics.epoch % 20 == 0)
                       {
                           float accuracy = trainer.evaluate_accuracy(hard_test_x, hard_test_y);
-                          cout << "  Epoch " << setw(3) << metrics.epoch
+                         cout << "  Epoch " << setw(3) << metrics.epoch
                                << " | Loss: " << fixed << setprecision(4) << metrics.loss
                                << " | Hard A-Z accuracy: " << setprecision(1)
-                               << accuracy * 100.0f << "%\n";
+                             << accuracy * 100.0f << "%"
+                             << " | Meta LR: " << setprecision(3) << trainer.last_meta_lr_scale
+                             << " | Taylor LR: " << trainer.last_taylor_lr_scale << "\n";
                       } });
 
     float accuracy = trainer.evaluate_accuracy(hard_test_x, hard_test_y);
@@ -105,15 +113,20 @@ static void train_image_database(const string &dataset_name, const string &datas
         return;
     }
 
-    auto [train_x, train_y] = ring3::MnistDataset::load_dataset(train_images, train_labels, 10000);
-    auto [test_x, test_y] = ring3::MnistDataset::load_dataset(test_images, test_labels, 2000);
+    const auto &runtime = ring0::get_config();
+    auto [train_x, train_y] = ring3::MnistDataset::load_dataset(train_images, train_labels,
+                                                                runtime.recognition_image_train_limit);
+    auto [test_x, test_y] = ring3::MnistDataset::load_dataset(test_images, test_labels,
+                                                              runtime.recognition_image_test_limit);
 
     ring2::NeuralNet model;
     model.add_dense(ring3::MnistDataset::INPUT_DIM, 128, ring0::ActivationType::ReLU);
     model.add_dense(128, ring3::MnistDataset::NUM_CLASSES, ring0::ActivationType::None);
 
     ring1::GradientDescent compatibility_optimizer;
-    ring3::TrainingConfig config = adaptive_config(8, 64, 0.001f);
+    ring3::TrainingConfig config = adaptive_config(runtime.recognition_image_epochs,
+                                                   runtime.recognition_image_batch_size,
+                                                   runtime.recognition_learning_rate);
     ring3::RingTrainer trainer(model, compatibility_optimizer, {}, config);
 
     auto train_start = chrono::steady_clock::now();
@@ -123,10 +136,12 @@ static void train_image_database(const string &dataset_name, const string &datas
                   {
                       if (metrics.epoch == 1 || metrics.epoch % 2 == 0)
                       {
-                          cout << "  " << dataset_name << " epoch " << metrics.epoch
+                         cout << "  " << dataset_name << " epoch " << metrics.epoch
                                << " | Loss: " << fixed << setprecision(4) << metrics.loss
                                << " | Held-out accuracy: " << setprecision(1)
-                               << trainer.evaluate_accuracy(test_x, test_y) * 100.0f << "%\n";
+                             << trainer.evaluate_accuracy(test_x, test_y) * 100.0f << "%"
+                             << " | Meta LR: " << setprecision(3) << trainer.last_meta_lr_scale
+                             << " | Taylor LR: " << trainer.last_taylor_lr_scale << "\n";
                       } });
 
     size_t predicted = trainer.predict_class(test_x);
@@ -151,6 +166,8 @@ static void train_image_database(const string &dataset_name, const string &datas
 
 int main(int argc, char *argv[])
 {
+    auto &runtime = ring0::get_config();
+    runtime.set_debug(false);
     cout << "=========================================================\n";
     cout << "       RINGWRAPPER HARDER RECOGNITION BENCHMARK          \n";
     cout << "=========================================================\n";

@@ -17,6 +17,7 @@ Standard frameworks (like Python PyTorch/Transformers) suffer from:
 2. **Meta-Neural Loss Optimization (`Ring 1`)**: An internal auxiliary neural network observes optimization telemetry and actively adapts the loss scale, focal gamma exponent, and curvature preconditioning in real-time.
 3. **4-Formula Dynamic Weight Physics (`Ring 1`)**: Dynamically evaluates the importance of every individual weight and applies 1 of 4 specialized update equations (Riemannian natural gradient for key weights down to inertial sparse decay for noise).
 4. **Token Relevancy & Context Parsing (`Ring 3`)**: Discards fixed window constraints and dynamically scales context windows based on token information entropy and semantic significance.
+5. **Labeled Recognition Benchmarks (`Ring 3`)**: Trains dense classifiers on a harder held-out A-Z split plus real MNIST and Fashion-MNIST IDX datasets, using the same AdamW, meta-loss, Taylor foresight, and growth-control components where they apply.
 
 ---
 
@@ -52,6 +53,7 @@ flowchart TD
         REL["Token Relevancy & Non-Linear Context Radius"]
         CURR["3D Progressive Curriculum (Horizon, Context, Depth)"]
         TRAIN["LLMTrainer (Dynamic LR Schedules & Focal Modulation)"]
+        RECOG["RingTrainer (A-Z, MNIST & Fashion-MNIST Recognition)"]
         EVAL["Validation Engine & Multi-File Checkpoint Lifecycle"]
     end
 
@@ -75,6 +77,7 @@ Every capability in the system belongs strictly to its assigned Ring. For exampl
 - **`include/ring1/attention.hpp`**: Consumes `ring0::Matrix` to perform multi-head attention.
 - **`include/ring2/transformer_lm.hpp`**: Assembles attention blocks and SwiGLU feed-forward networks into a complete causal language model.
 - **`include/ring3/llm_trainer.hpp`**: Coordinates the dataset, backward pass, optimizer steps, and evaluation.
+- **`include/ring3/trainer.hpp`**: Coordinates dense recognition training, labeled accuracy, AdamW updates, meta-loss control, Taylor foresight, and loss-guided growth.
 
 ### 2. High-Performance Contiguous Memory Management
 In standard object-oriented programming, matrices are often represented as vectors of vectors (`vector<vector<float>>`). This creates massive pointer indirection, cache thrashing, and memory fragmentation.
@@ -121,4 +124,5 @@ struct Matrix {
 - [[01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math|Tensor3D & Matrix Math]]
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer|Meta-Neural Loss Optimizer]]
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics|4-Formula Dynamic Weight Physics]]
+- [[04 - Ring 3 (Data & Training Pipelines)/Recognition Benchmarks - Letters MNIST Fashion-MNIST|Recognition Benchmarks: A-Z, MNIST & Fashion-MNIST]]
 - [[Index|Return to Master Index]]

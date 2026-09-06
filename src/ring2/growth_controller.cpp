@@ -129,7 +129,20 @@ namespace ring2
                 // Auto-determine how many neurons to add from the forecast: the more
                 // confident and severe the predicted stall, the larger the step.
                 float forecast_boost = 1.0f + forecast_conf * clamp(0.5f + 0.5f * tanhf(forecast_net * 2.0f), 0.0f, 1.0f) * 3.0f;
-                size_t neurons_to_add = static_cast<size_t>(ceil(config.base_neurons_to_add * current_growth_rate * forecast_boost));
+                float requested_neurons = static_cast<float>(config.base_neurons_to_add) *
+                                          current_growth_rate * forecast_boost;
+                if (!std::isfinite(requested_neurons) || requested_neurons < 1.0f)
+                    requested_neurons = static_cast<float>(config.base_neurons_to_add);
+                size_t neurons_to_add = static_cast<size_t>(ceil(requested_neurons));
+
+                // Never request more than the configured safety ceiling allows in one step.
+                size_t current_width = 0;
+                for (size_t i = 0; i + 1 < net.layers.size(); ++i)
+                    current_width = max(current_width, net.layers[i].out_features);
+                size_t remaining_width = dyn_ceiling > current_width ? dyn_ceiling - current_width : 0;
+                neurons_to_add = min(neurons_to_add, remaining_width);
+                if (neurons_to_add == 0)
+                    return report;
 
                 bool expanded = false;
                 for (size_t i = 0; i < net.layers.size() - 1; ++i)
@@ -164,9 +177,14 @@ namespace ring2
         }
         else
         {
-            cout << "Current loss: " << fixed << setprecision(4) << loss << ". ";
-            // Steady convergence: Relax growth rate
-            current_growth_rate = max(config.min_growth_rate, current_growth_rate * 0.9f * (1.0f + loss * 10.0f));
+            // cout << "Current loss: " << fixed << setprecision(4) << loss << ". ";
+            //  Steady convergence: Relax growth rate
+            float adjusted_growth_rate = current_growth_rate * 0.9f * (1.0f + loss * 10.0f);
+            if (!std::isfinite(adjusted_growth_rate))
+                adjusted_growth_rate = config.max_growth_rate;
+            current_growth_rate = clamp(adjusted_growth_rate,
+                                        config.min_growth_rate,
+                                        config.max_growth_rate);
             cumulative_growth_pressure = max(0.0f, cumulative_growth_pressure * 0.5f * (1.0f + loss * 6.0f));
 
             report.action = GrowthAction::RateDecreased;
