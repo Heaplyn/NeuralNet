@@ -106,13 +106,13 @@ namespace ring0
         float curvature_scale_ceiling = 2.50f;
 
         // --- Dense Recognition Benchmarks ---
-        size_t recognition_letter_epochs = 120;
-        size_t recognition_image_epochs = 8;
-        size_t recognition_letter_batch_size = 64;
+        size_t recognition_letter_epochs = 2000;
+        size_t recognition_image_epochs = 2000;
+        size_t recognition_letter_batch_size = 128;
         size_t recognition_image_batch_size = 128;
-        size_t recognition_image_train_limit = 10000;
-        size_t recognition_image_test_limit = 2000;
-        float recognition_learning_rate = 0.001f;
+        size_t recognition_image_train_limit = 100000;
+        size_t recognition_image_test_limit = 200000;
+        float recognition_learning_rate = 0.01f;
         float recognition_weight_decay = 0.01f;
         float recognition_max_grad_norm = 1.0f;
         float recognition_taylor_weight = 0.5f;
