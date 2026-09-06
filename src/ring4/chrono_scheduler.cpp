@@ -1,8 +1,8 @@
-#include "ring3/chrono_scheduler.hpp"
+#include "ring4/chrono_scheduler.hpp"
 #include <iostream>
 #include <cmath>
 
-namespace ring3 {
+namespace ring4 {
 
 ChronoAsyncEngine::ChronoAsyncEngine()
     : is_running(false) {
@@ -203,4 +203,4 @@ void ChronoAsyncEngine::get_latest_coc_metrics(float& out_consistency, bool& out
     out_verified_count = telemetry.coc_verified_proofs_count.load(std::memory_order_relaxed);
 }
 
-} // namespace ring3
+} // namespace ring4

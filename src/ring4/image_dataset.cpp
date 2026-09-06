@@ -1,4 +1,4 @@
-#include "ring3/image_dataset.hpp"
+#include "ring4/image_dataset.hpp"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -7,7 +7,7 @@
 
 using namespace std;
 
-namespace ring3 {
+namespace ring4 {
 
 // Canonical labels for Fashion-MNIST physical objects
 const char* const ImageDataset::CLASS_NAMES[10] = {
@@ -146,4 +146,4 @@ string ImageDataset::get_class_name(size_t class_idx) {
     return "Unknown";
 }
 
-} // namespace ring3
+} // namespace ring4

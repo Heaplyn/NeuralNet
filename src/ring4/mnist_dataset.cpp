@@ -1,4 +1,4 @@
-#include "ring3/mnist_dataset.hpp"
+#include "ring4/mnist_dataset.hpp"
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -7,7 +7,7 @@
 
 using namespace std;
 
-namespace ring3 {
+namespace ring4 {
 
 // Reads 32-bit big-endian integer from binary stream
 static uint32_t read_uint32_be(ifstream& file) {
@@ -137,4 +137,4 @@ string MnistDataset::to_ascii_art(const ring0::Matrix& m, size_t row_idx, float 
     return ss.str();
 }
 
-} // namespace ring3
+} // namespace ring4

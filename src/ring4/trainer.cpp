@@ -5,12 +5,12 @@
 #include <algorithm>
 #include <cmath>
 
-#include "ring3/trainer.hpp"
+#include "ring4/trainer.hpp"
 #include "ring0/loss.hpp"
 
 using namespace std;
 
-namespace ring3
+namespace ring4
 {
 
     // Constructor: Initializes trainer, growth controller, and momentum optimizer
@@ -338,4 +338,4 @@ namespace ring3
         return best;
     }
 
-} // namespace ring3
+} // namespace ring4

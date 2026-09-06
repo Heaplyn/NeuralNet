@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Include directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include_new)
 
 if(NOT MSVC)
     find_package(OpenMP)
@@ -44,14 +44,22 @@ set(RING2_SOURCES
 )
 
 set(RING3_SOURCES
-    src/ring3/letter_dataset.cpp
-    src/ring3/mnist_dataset.cpp
-    src/ring3/image_dataset.cpp
-    src/ring3/text_dataset.cpp
-    src/ring3/data_loader.cpp
-    src/ring3/chrono_scheduler.cpp
-    src/ring3/llm_trainer.cpp
-    src/ring3/trainer.cpp
+    src/ring3/tensor4d.cpp
+    src/ring3/conv2d.cpp
+    src/ring3/maxpool2d.cpp
+    src/ring3/cnn.cpp
+    src/ring3/cnn_trainer.cpp
+)
+
+set(RING4_SOURCES
+    src/ring4/letter_dataset.cpp
+    src/ring4/mnist_dataset.cpp
+    src/ring4/image_dataset.cpp
+    src/ring4/text_dataset.cpp
+    src/ring4/data_loader.cpp
+    src/ring4/chrono_scheduler.cpp
+    src/ring4/llm_trainer.cpp
+    src/ring4/trainer.cpp
 )
 
 # Core RingWrapper Library
@@ -60,17 +68,18 @@ add_library(ringwrapper_nn STATIC
     ${RING1_SOURCES}
     ${RING2_SOURCES}
     ${RING3_SOURCES}
+    ${RING4_SOURCES}
 )
 
 target_include_directories(ringwrapper_nn PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/include_new
 )
 
 if(OpenMP_CXX_FOUND)
     target_link_libraries(ringwrapper_nn PUBLIC OpenMP::OpenMP_CXX)
 endif()
 
-# Ring 4 Demo Application
+# Ring 5 Demo Application
 add_executable(nn_demo
     src/main.cpp
 )

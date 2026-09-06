@@ -20,20 +20,16 @@ out/
 # Checkpoints and logs
 checkpoints/
 logs/
-data/*.bin
-*.bin
 
-# Large standard datasets (downloadable; not project-specific source)
-# Kept: corpus.txt, Global_Education.csv, data/code_dataset/ (project inputs)
-data/train.csv
-data/test.csv
-data/validation.csv
-data/fashion_mnist/
+# Data folders
+data/
+data2/
+*.bin
+*.csv
+*.txt
+*.gz
 *-idx3-ubyte
 *-idx1-ubyte
-*-idx3-ubyte.gz
-*-idx1-ubyte.gz
-*.gz
 
 # IDE and OS
 .vs/

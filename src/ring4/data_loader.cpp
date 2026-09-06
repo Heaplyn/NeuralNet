@@ -6,10 +6,10 @@
 #include <vector>
 #include <string>
 
-#include "ring3/data_loader.hpp"
-#include "ring3/text_dataset.hpp"
+#include "ring4/data_loader.hpp"
+#include "ring4/text_dataset.hpp"
 
-namespace ring3 {
+namespace ring4 {
 
 static inline std::string trim(const std::string& s) {
     auto start = s.begin();
@@ -402,4 +402,4 @@ size_t BackgroundDataStreamer::poll_and_append(TextDataset& dataset) {
     return count;
 }
 
-} // namespace ring3
+} // namespace ring4

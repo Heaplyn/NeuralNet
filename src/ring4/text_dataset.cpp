@@ -9,11 +9,11 @@
 #include <cmath>
 
 #include "ring0/config.hpp"
-#include "ring3/text_dataset.hpp"
+#include "ring4/text_dataset.hpp"
 
 using namespace std;
 
-namespace ring3 {
+namespace ring4 {
 
 // Local deterministic RNG engine for randomized batch generation
 static mt19937& get_batch_rng() {
@@ -464,4 +464,4 @@ size_t TextDataset::append_tokens(const vector<int>& new_tokens, const vector<bo
     return new_tokens.size();
 }
 
-} // namespace ring3
+} // namespace ring4

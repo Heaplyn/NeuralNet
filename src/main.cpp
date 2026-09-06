@@ -22,10 +22,10 @@ static size_t parse_test_letter(int argc, char *argv[])
     return 0;
 }
 
-static ring3::TrainingConfig adaptive_config(size_t epochs, size_t batch_size, float learning_rate)
+static ring4::TrainingConfig adaptive_config(size_t epochs, size_t batch_size, float learning_rate)
 {
     const auto &runtime = ring0::get_config();
-    ring3::TrainingConfig config;
+    ring4::TrainingConfig config;
     config.epochs = epochs;
     config.batch_size = batch_size;
     config.learning_rate = learning_rate;
@@ -41,34 +41,34 @@ static ring3::TrainingConfig adaptive_config(size_t epochs, size_t batch_size, f
 
 static float train_letter_database(int argc, char *argv[])
 {
-    auto [train_x, train_y] = ring3::LetterDataset::generate_augmented_dataset(40, 0.15f, 0.10f, 1337);
-    auto [hard_test_x, hard_test_y] = ring3::LetterDataset::generate_augmented_dataset(10, 0.30f, 0.18f, 7331);
+    auto [train_x, train_y] = ring4::LetterDataset::generate_augmented_dataset(40, 0.15f, 0.10f, 1337);
+    auto [hard_test_x, hard_test_y] = ring4::LetterDataset::generate_augmented_dataset(10, 0.30f, 0.18f, 7331);
 
     ring2::NeuralNet model;
-    model.add_dense(ring3::LetterDataset::INPUT_DIM, 64, ring0::ActivationType::ReLU);
-    model.add_dense(64, ring3::LetterDataset::NUM_CLASSES, ring0::ActivationType::None);
+    model.add_dense(ring4::LetterDataset::INPUT_DIM, 64, ring0::ActivationType::ReLU);
+    model.add_dense(64, ring4::LetterDataset::NUM_CLASSES, ring0::ActivationType::None);
 
     ring1::GradientDescent compatibility_optimizer;
     const auto &runtime = ring0::get_config();
-    ring3::TrainingConfig config = adaptive_config(runtime.recognition_letter_epochs,
+    ring4::TrainingConfig config = adaptive_config(runtime.recognition_letter_epochs,
                                                    runtime.recognition_letter_batch_size,
                                                    runtime.recognition_learning_rate);
-    ring3::RingTrainer trainer(model, compatibility_optimizer, {}, config);
+    ring4::RingTrainer trainer(model, compatibility_optimizer, {}, config);
 
     auto train_start = chrono::steady_clock::now();
-    cout << "[A-Z] Training on 40 samples per letter with moderate noise.\n";
-    cout << "[A-Z] Testing on 10 unseen samples per letter with stronger noise.\n";
-    trainer.train(train_x, train_y, [&](const ring3::EpochMetrics &metrics)
+    cout << "[A-Z Dense] Training on 40 samples per letter with moderate noise.\n";
+    cout << "[A-Z Dense] Testing on 10 unseen samples per letter with stronger noise.\n";
+    trainer.train(train_x, train_y, [&](const ring4::EpochMetrics &metrics)
                   {
                       if (metrics.epoch == 1 || metrics.epoch % 20 == 0)
                       {
                           float accuracy = trainer.evaluate_accuracy(hard_test_x, hard_test_y);
-                         cout << "  Epoch " << setw(3) << metrics.epoch
+                          cout << "  Epoch " << setw(3) << metrics.epoch
                                << " | Loss: " << fixed << setprecision(4) << metrics.loss
                                << " | Hard A-Z accuracy: " << setprecision(1)
-                             << accuracy * 100.0f << "%"
-                             << " | Meta LR: " << setprecision(3) << trainer.last_meta_lr_scale
-                             << " | Taylor LR: " << trainer.last_taylor_lr_scale << "\n";
+                               << accuracy * 100.0f << "%"
+                               << " | Meta LR: " << setprecision(3) << trainer.last_meta_lr_scale
+                               << " | Taylor LR: " << trainer.last_taylor_lr_scale << "\n";
                       } });
 
     float accuracy = trainer.evaluate_accuracy(hard_test_x, hard_test_y);
@@ -78,24 +78,99 @@ static float train_letter_database(int argc, char *argv[])
                                 max(0.001, elapsed_seconds);
     size_t tested_letter = parse_test_letter(argc, argv);
     size_t tested_sample = tested_letter * 10 + 5;
-    ring0::Matrix letter_input(1, ring3::LetterDataset::INPUT_DIM);
-    for (size_t feature = 0; feature < ring3::LetterDataset::INPUT_DIM; ++feature)
+    ring0::Matrix letter_input(1, ring4::LetterDataset::INPUT_DIM);
+    for (size_t feature = 0; feature < ring4::LetterDataset::INPUT_DIM; ++feature)
         letter_input(0, feature) = hard_test_x(tested_sample, feature);
 
     size_t guessed_letter = trainer.predict_class(letter_input);
-    char expected = ring3::LetterDataset::get_char(tested_letter);
-    char guessed = ring3::LetterDataset::get_char(guessed_letter);
+    char expected = ring4::LetterDataset::get_char(tested_letter);
+    char guessed = ring4::LetterDataset::get_char(guessed_letter);
 
-    cout << "\n[A-Z] Tested letter: " << expected << " (unseen noisy sample)\n";
-    cout << ring3::LetterDataset::to_ascii_art(hard_test_x, tested_sample);
-    cout << "[A-Z] Guessed letter: " << guessed << "\n";
-    cout << "[A-Z] Match: " << (expected == guessed ? "PASS" : "FAIL") << "\n";
-    cout << "[A-Z] Hard accuracy: " << fixed << setprecision(2)
+    cout << "\n[A-Z Dense] Tested letter: " << expected << " (unseen noisy sample)\n";
+    cout << ring4::LetterDataset::to_ascii_art(hard_test_x, tested_sample);
+    cout << "[A-Z Dense] Guessed letter: " << guessed << "\n";
+    cout << "[A-Z Dense] Match: " << (expected == guessed ? "PASS" : "FAIL") << "\n";
+    cout << "[A-Z Dense] Hard accuracy: " << fixed << setprecision(2)
          << accuracy * 100.0f << "% (260 labeled test samples)\n\n";
-    cout << "[A-Z] Benchmark: " << fixed << setprecision(2) << elapsed_seconds
+    cout << "[A-Z Dense] Benchmark: " << fixed << setprecision(2) << elapsed_seconds
          << " s | " << setprecision(1) << samples_per_second
          << " training samples/s | " << model.get_total_parameters() << " parameters\n\n";
     return accuracy;
+}
+
+static float train_letter_cnn(int argc, char *argv[])
+{
+    auto [train_x, train_y] = ring4::LetterDataset::generate_augmented_dataset(40, 0.15f, 0.10f, 1337);
+    auto [hard_test_x, hard_test_y] = ring4::LetterDataset::generate_augmented_dataset(10, 0.30f, 0.18f, 7331);
+
+    // Letter bitmaps are 16x16 grayscale images (1 channel, 16 height, 16 width = 256 inputs)
+    ring3::CNN cnn_model(1, 16, 16);
+    cnn_model.add_conv(1, 8, 3, 1, 1, ring0::ActivationType::ReLU, /*pool=*/true); // 16x16 -> 8x8
+    cnn_model.add_conv(8, 16, 3, 1, 1, ring0::ActivationType::ReLU, /*pool=*/true); // 8x8 -> 4x4
+    cnn_model.add_dense(64, ring0::ActivationType::ReLU);
+    cnn_model.add_dense(ring4::LetterDataset::NUM_CLASSES, ring0::ActivationType::None);
+
+    ring3::CNNTrainingConfig cnn_cfg;
+    cnn_cfg.epochs = 25;
+    cnn_cfg.batch_size = 32;
+    cnn_cfg.learning_rate = 0.015f;
+    cnn_cfg.enable_taylor_forecast = true;
+    cnn_cfg.enable_meta_loss_opt = true;
+    cnn_cfg.enable_mistake_memory = true;
+    cnn_cfg.enable_auto_grad_norm = true;
+    cnn_cfg.target_grad_norm = 1.0f;
+    cnn_cfg.enable_dynamic_growth = true;
+
+    ring3::CNNTrainer cnn_trainer(cnn_model, cnn_cfg);
+
+    cout << "=========================================================\n";
+    cout << "  RING 3 CONVOLUTIONAL NEURAL NETWORK (CNN) BENCHMARK   \n";
+    cout << "=========================================================\n";
+    cout << "Features: 2D Conv + Auto-Grad Norm + Taylor + Meta-LR + Mistake Sizing\n";
+    cnn_model.print_architecture();
+
+    auto train_start = chrono::steady_clock::now();
+    cnn_trainer.train(train_x, train_y, [&](const ring3::CNNEpochMetrics &m)
+    {
+        if (m.epoch == 1 || m.epoch % 5 == 0 || m.epoch == cnn_cfg.epochs)
+        {
+            float acc = cnn_trainer.evaluate_accuracy(hard_test_x, hard_test_y);
+            cout << "  [CNN] Epoch " << setw(2) << m.epoch
+                 << " | Loss: " << fixed << setprecision(4) << m.loss
+                 << " | Hard Acc: " << setprecision(1) << acc * 100.0f << "%"
+                 << " | Raw |G|: " << setprecision(2) << m.raw_grad_norm
+                 << " | AutoNorm |G|: " << m.normalized_grad_norm
+                 << " | Meta LR: " << setprecision(3) << m.meta_lr_scale
+                 << " | Taylor LR: " << m.taylor_lr_scale
+                 << " | Mistakes: " << m.stored_mistakes
+                 << (m.capacity_expanded ? " [EXPANDED]" : "") << "\n";
+        }
+    });
+
+    float cnn_accuracy = cnn_trainer.evaluate_accuracy(hard_test_x, hard_test_y);
+    auto train_end = chrono::steady_clock::now();
+    double elapsed_seconds = chrono::duration<double>(train_end - train_start).count();
+
+    size_t tested_letter = parse_test_letter(argc, argv);
+    size_t tested_sample = tested_letter * 10 + 5;
+    ring0::Matrix letter_input(1, ring4::LetterDataset::INPUT_DIM);
+    for (size_t feature = 0; feature < ring4::LetterDataset::INPUT_DIM; ++feature)
+        letter_input(0, feature) = hard_test_x(tested_sample, feature);
+
+    size_t guessed_letter = cnn_trainer.predict_class(letter_input);
+    char expected = ring4::LetterDataset::get_char(tested_letter);
+    char guessed = ring4::LetterDataset::get_char(guessed_letter);
+
+    cout << "\n[A-Z CNN] Tested letter: " << expected << " (unseen noisy sample)\n";
+    cout << ring4::LetterDataset::to_ascii_art(hard_test_x, tested_sample);
+    cout << "[A-Z CNN] Guessed letter: " << guessed << "\n";
+    cout << "[A-Z CNN] Match: " << (expected == guessed ? "PASS" : "FAIL") << "\n";
+    cout << "[A-Z CNN] Hard accuracy: " << fixed << setprecision(2)
+         << cnn_accuracy * 100.0f << "% (260 labeled test samples)\n";
+    cout << "[A-Z CNN] Time: " << fixed << setprecision(2) << elapsed_seconds
+         << " s | Parameters: " << cnn_model.get_total_parameters() << "\n\n";
+
+    return cnn_accuracy;
 }
 
 static void train_image_database(const string &dataset_name, const string &dataset_root)
@@ -114,34 +189,34 @@ static void train_image_database(const string &dataset_name, const string &datas
     }
 
     const auto &runtime = ring0::get_config();
-    auto [train_x, train_y] = ring3::MnistDataset::load_dataset(train_images, train_labels,
+    auto [train_x, train_y] = ring4::MnistDataset::load_dataset(train_images, train_labels,
                                                                 runtime.recognition_image_train_limit);
-    auto [test_x, test_y] = ring3::MnistDataset::load_dataset(test_images, test_labels,
+    auto [test_x, test_y] = ring4::MnistDataset::load_dataset(test_images, test_labels,
                                                               runtime.recognition_image_test_limit);
 
     ring2::NeuralNet model;
-    model.add_dense(ring3::MnistDataset::INPUT_DIM, 128, ring0::ActivationType::ReLU);
-    model.add_dense(128, ring3::MnistDataset::NUM_CLASSES, ring0::ActivationType::None);
+    model.add_dense(ring4::MnistDataset::INPUT_DIM, 128, ring0::ActivationType::ReLU);
+    model.add_dense(128, ring4::MnistDataset::NUM_CLASSES, ring0::ActivationType::None);
 
     ring1::GradientDescent compatibility_optimizer;
-    ring3::TrainingConfig config = adaptive_config(runtime.recognition_image_epochs,
+    ring4::TrainingConfig config = adaptive_config(runtime.recognition_image_epochs,
                                                    runtime.recognition_image_batch_size,
                                                    runtime.recognition_learning_rate);
-    ring3::RingTrainer trainer(model, compatibility_optimizer, {}, config);
+    ring4::RingTrainer trainer(model, compatibility_optimizer, {}, config);
 
     auto train_start = chrono::steady_clock::now();
     cout << "[" << dataset_name << "] Training on " << train_x.rows << " real images and evaluating on "
          << test_x.rows << " held-out images.\n";
-    trainer.train(train_x, train_y, [&](const ring3::EpochMetrics &metrics)
+    trainer.train(train_x, train_y, [&](const ring4::EpochMetrics &metrics)
                   {
                       if (metrics.epoch == 1 || metrics.epoch % 2 == 0)
                       {
                          cout << "  " << dataset_name << " epoch " << metrics.epoch
                                << " | Loss: " << fixed << setprecision(4) << metrics.loss
                                << " | Held-out accuracy: " << setprecision(1)
-                             << trainer.evaluate_accuracy(test_x, test_y) * 100.0f << "%"
-                             << " | Meta LR: " << setprecision(3) << trainer.last_meta_lr_scale
-                             << " | Taylor LR: " << trainer.last_taylor_lr_scale << "\n";
+                               << trainer.evaluate_accuracy(test_x, test_y) * 100.0f << "%"
+                               << " | Meta LR: " << setprecision(3) << trainer.last_meta_lr_scale
+                               << " | Taylor LR: " << trainer.last_taylor_lr_scale << "\n";
                       } });
 
     size_t predicted = trainer.predict_class(test_x);
@@ -150,7 +225,7 @@ static void train_image_database(const string &dataset_name, const string &datas
         ++expected;
 
     cout << "[" << dataset_name << "] Tested class: " << expected << "\n";
-    cout << ring3::MnistDataset::to_ascii_art(test_x, 0);
+    cout << ring4::MnistDataset::to_ascii_art(test_x, 0);
     cout << "[" << dataset_name << "] Guessed class: " << predicted << "\n";
     cout << "[" << dataset_name << "] Match: " << (expected == predicted ? "PASS" : "FAIL") << "\n";
     cout << "[" << dataset_name << "] Held-out accuracy: " << fixed << setprecision(2)
@@ -171,15 +246,17 @@ int main(int argc, char *argv[])
     cout << "=========================================================\n";
     cout << "       RINGWRAPPER HARDER RECOGNITION BENCHMARK          \n";
     cout << "=========================================================\n";
-    cout << "Adaptive stack: AdamW + Meta-Loss + Taylor + growth control\n\n";
+    cout << "Adaptive stack: AdamW + Meta-Loss + Taylor + CNN Vision\n\n";
     cout << left << setw(18) << "Dataset" << right << setw(12) << "Train rows"
          << setw(12) << "Test rows" << setw(14) << "Metric" << "\n";
     cout << string(58, '-') << "\n";
 
-    float letter_accuracy = train_letter_database(argc, argv);
+    float letter_dense_acc = train_letter_database(argc, argv);
+    float letter_cnn_acc = train_letter_cnn(argc, argv);
+
     train_image_database("MNIST", "data/mnist");
     train_image_database("Fashion-MNIST", "data/fashion-mnist");
 
     cout << "\nBenchmark complete.\n";
-    return letter_accuracy > 0.0f ? 0 : 1;
+    return (letter_dense_acc > 0.0f && letter_cnn_acc > 0.0f) ? 0 : 1;
 }

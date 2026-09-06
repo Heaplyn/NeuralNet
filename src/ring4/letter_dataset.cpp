@@ -1,4 +1,4 @@
-#include "ring3/letter_dataset.hpp"
+#include "ring4/letter_dataset.hpp"
 #include <cstdint>
 #include <random>
 #include <sstream>
@@ -7,7 +7,7 @@
 
 using namespace std;
 
-namespace ring3
+namespace ring4
 {
 
     // 5x7 Font Bitmaps (5 bits per row: bits 4..0 representing columns 0..4)
@@ -192,4 +192,4 @@ namespace ring3
         return '?';
     }
 
-} // namespace ring3
+} // namespace ring4

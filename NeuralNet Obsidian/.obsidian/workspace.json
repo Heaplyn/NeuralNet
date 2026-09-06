@@ -99,7 +99,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -118,7 +117,6 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
@@ -161,7 +159,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
+                "file": "06 - Reference Dictionaries & Practical Guides/Vocabulary Expansion & BPE Subword Mechanics.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
@@ -190,6 +188,9 @@
   },
   "active": "38140cb836345e1e",
   "lastOpenFiles": [
+    "03 - Ring 2 (Models & Transformers)/Recognition Network.md",
+    "02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics.md",
+    "04 - Ring 3 (Data & Training Pipelines)/Recognition Benchmarks - Letters MNIST Fashion-MNIST.md",
     "00 - Overview & Architecture/Architecture Map.md",
     "01 - Ring 0 (Core Math & Hardware)/Activation Functions.md",
     "00 - Overview & Architecture/Ring Dependency Hierarchy.md",
@@ -214,9 +215,6 @@
     "04 - Ring 3 (Data & Training Pipelines)/Universal Data Ingestion (CSV, TXT, BIN).md",
     "02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer.md",
     "Welcome.md",
-    "03 - Ring 2 (Models, Vocabulary & Inference)/KV-Cache & Generation Inference.md",
-    "00 - Overview & Architecture/Beginner Roadmap & Core Concepts.md",
-    "01 - Ring 0 (Core Math & Hardware)/Loss Derivative Pyramid & Curvature Scaling.md",
     "03 - Ring 2 (Models, Vocabulary & Inference)",
     "01 - Ring 0 (Core Math & Hardware)/Taylor Penalty Prediction & Confidence Gating.md.tmp.36356.642b18b076bf",
     "05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization.md.tmp.36356.3e19a1c0c06e",
