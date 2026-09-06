@@ -48,7 +48,7 @@ Layers that directly contributed to loss reduction receive higher learning rates
 
 ## 🛡️ Step Safety: Trust Region & Dimension Damping
 
-The raw step magnitude needs two guardrails. Without them, once the [[03 - Ring 2 (Models & Transformers)/TransformerLM Decoder (GQA + SwiGLU + RoPE)|fast-start bias init]] produced real gradients, a single step could push the loss from **8.7 → 47**. Both guardrails live inside `update_param`, right before the weight is written.
+The raw step magnitude needs two guardrails. Dense image and letter classifiers can still produce sharp gradient changes, so both guardrails live inside `update_param`, right before the weight is written.
 
 ### 1. Loss-adaptive trust region (`config.max_step`)
 The per-element step is clamped to `±max_step`, and `max_step` is **inverse to the loss** — tight when loss is high (unstable), loose when low (converging):
@@ -65,14 +65,13 @@ float dim_damp = sqrt(128.0f / max(128.0f, (float)max(param.rows, param.cols)));
 effective_lr  *= dim_damp;
 ```
 
-**Intuition:** the tied vocab weight ($10000\times128$) is the biggest tensor and is used as *both* embedding and output head, so an un-damped step hits the model twice. Damping it ~9× (factor 0.11) while leaving 128-wide layers at full speed (factor 1.0) surgically stabilizes the one dangerous parameter. This is the same $1/\sqrt{d}$ logic as Xavier/He init and attention's $1/\sqrt{d_k}$, applied to the *update* instead of the *initialization*.
+**Intuition:** a wide image weight matrix accumulates more per-element update pressure than a small letter matrix. Dimension-aware damping reduces that pressure while preserving the learning signal. This is the same $1/\sqrt{d}$ logic as Xavier/He initialization, applied to the update instead of the initialization.
 
-See [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent|Training Stability & Fast-Start Descent]] for the full derivation, worked numbers, and analogies.
 
 ---
 
 ## 🔗 Related Notes
-- [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent|Training Stability & Fast-Start Descent]]
+- [[04 - Ring 3 (Data & Training Pipelines)/Recognition Benchmarks - Letters MNIST Fashion-MNIST|Recognition Benchmarks]]
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics|4-Formula Dynamic Weight Physics]]
 - [[05 - Theoretical Foundations & Physics/Riemannian Manifolds & Fisher Information|Riemannian Manifolds]]
 - [[Index|Return to Index]]

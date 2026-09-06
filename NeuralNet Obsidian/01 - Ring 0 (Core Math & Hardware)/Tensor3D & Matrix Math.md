@@ -160,5 +160,5 @@ struct Tensor3D {
 ## 🔗 Related Notes
 - [[01 - Ring 0 (Core Math & Hardware)/Activation Functions|Activation Functions]]
 - [[01 - Ring 0 (Core Math & Hardware)/CUDA & Hardware Acceleration Engine|CUDA & Hardware Acceleration Engine]]
-- [[02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi|Attention Mechanics]]
+- [[03 - Ring 2 (Models & Transformers)/Recognition Network|Recognition Network]]
 - [[Index|Return to Master Index]]

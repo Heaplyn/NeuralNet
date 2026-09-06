@@ -1,6 +1,6 @@
 # Recognition Benchmarks: A-Z, MNIST & Fashion-MNIST
 
-This note documents the current image and letter-recognition application in `src/main.cpp`. It is separate from the transformer language-model path: the recognizer uses fixed-size feature matrices, dense layers, labeled classification targets, and held-out accuracy.
+This note documents the current image and letter-recognition application in `src/main.cpp`. The recognizer uses fixed-size feature matrices, dense layers, labeled classification targets, and held-out accuracy.
 
 ## Datasets
 
@@ -97,8 +97,6 @@ where `w` is `TrainingConfig::taylor_forecast_weight`, currently set to `0.5` by
 
 `RingTrainer` shuffles batches, performs forward/backward passes, updates adaptive state, and evaluates labels. The application prints the current meta and Taylor LR scales during progress output.
 
-Transformer-only systems such as KV cache, BPE vocabulary management, causal attention, and Chrono's transformer attachments are intentionally not used for these fixed-vector classifiers.
-
 ## Running
 
 From the repository root:
@@ -131,6 +129,5 @@ The displayed sample match is only one example. The held-out accuracy over the c
 - [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor]]
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer|Meta-Neural Loss Optimizer]]
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov|AdamW, Fisher Metric & Nesterov]]
-- [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Architecture]]
-- [[04 - Ring 3 (Data & Training Pipelines)/Real-Time Benchmark & Telemetry Dashboard|Benchmark & Telemetry Dashboard]]
+- [[03 - Ring 2 (Models & Transformers)/Recognition Network|Recognition Network]]
 - [[Index|Master Index]]

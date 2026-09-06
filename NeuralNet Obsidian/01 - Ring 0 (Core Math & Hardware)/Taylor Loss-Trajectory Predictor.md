@@ -208,7 +208,7 @@ graph LR
 2. **Penalty** — `penalty_foresight` nudges `AdamW::penalty_factor` *before* a predicted spike.
 3. **Learning rate** — `lr_foresight_scale` shapes the LR predictively (a forward-looking Armijo).
 4. **Curvature** — `curvature_foresight` shrinks steps when the forecast oscillates.
-5. **[[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|Structural growth]]** — the same forecaster tells the `GrowthController` a plateau is coming so capacity arrives **just-in-time** (see below).
+5. **[[04 - Ring 3 (Data & Training Pipelines)/Recognition Benchmarks - Letters MNIST Fashion-MNIST|Structural growth]]** — the same forecaster tells the `GrowthController` a plateau is coming so capacity arrives **just-in-time** (see below).
 
 ---
 
@@ -230,6 +230,6 @@ So the network's width is governed by *what the loss curve is predicted to do*, 
 - [[01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus|Loss Formulations & Calculus (LossDerivativePyramid)]]
 - [[05 - Theoretical Foundations & Physics/Multi-Order Loss Derivatives & Optimization|Multi-Order Loss Derivatives & Optimization]]
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/Meta-Neural Loss & Step Optimizer|Meta-Neural Loss & Step Optimizer]]
-- [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Architecture]]
+- [[04 - Ring 3 (Data & Training Pipelines)/Recognition Benchmarks - Letters MNIST Fashion-MNIST|Recognition Benchmarks]]
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer|Hierarchical Recursive Thought Layer (parent/child recursion)]]
 - [[Index|Return to Master Index]]

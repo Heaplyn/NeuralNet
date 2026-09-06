@@ -162,5 +162,5 @@ LayerNorm computes both mean $\mu$ and variance $\sigma^2$ (centering + scaling)
 - [[01 - Ring 0 (Core Math & Hardware)/Numerical Stability & NaN Prevention Physics|Numerical Stability & NaN Prevention]]
 - [[01 - Ring 0 (Core Math & Hardware)/Tensor3D & Matrix Math|Tensor3D & Matrix Math]]
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/Hierarchical Recursive Thought Layer|Hierarchical Recursive Thought Layer]]
-- [[02 - Ring 1 (Layers & Advanced Optimizers)/Attention Mechanics & ALiBi|Attention Mechanics & ALiBi]]
+- [[03 - Ring 2 (Models & Transformers)/Recognition Network|Recognition Network]]
 - [[Index|Return to Master Index]]

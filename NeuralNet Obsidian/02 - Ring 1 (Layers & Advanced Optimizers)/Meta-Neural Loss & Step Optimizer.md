@@ -1,6 +1,6 @@
 # 🧠 Meta-Neural Loss & Step Optimizer Network
 
-The **Meta-Neural Loss Optimizer** (`ring1::MetaLossOptimizer`) is an online self-learning neural network that dynamically shapes the optimization landscape during training. In short: **an auxiliary neural network tunes the primary transformer network's optimization in real time**.
+The **Meta-Neural Loss Optimizer** (`ring1::MetaLossOptimizer`) is an online self-learning neural network that dynamically shapes the optimization landscape during recognition training. It tunes the dense classifier's update behavior in real time.
 
 ---
 
@@ -11,7 +11,6 @@ Before reading this, you should be comfortable with:
 - The four knobs it controls (see the note body) — mainly LR-scale-like ideas and focal-loss γ
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/AdamW, Fisher Metric & Nesterov|AdamW]] — the primary optimizer whose scale/curvature it modulates
 - [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor]] — its foresight signals feed 4 of the 12 input features and blend into the reward
-- [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent|Training Stability & Fast-Start Descent]] — describes when/why the [[02 - Ring 1 (Layers & Advanced Optimizers)/Training Stability & Fast-Start Descent|watchdog]] freezes this network
 - Basic MLP + GELU
 
 > **Honest framing:** this is a form of learned-optimizer / meta-learning of hyperparameters, an active area with well-known instability challenges when trained *online on the same trajectory* as the main model. Treat it as an experimental adaptive controller (worth ablating with `--safe-mode`), not a proven technique.
@@ -254,5 +253,5 @@ So the meta-policy is rewarded for setting up a good *future*, not just a good *
 - [[01 - Ring 0 (Core Math & Hardware)/Taylor Loss-Trajectory Predictor|Taylor Loss-Trajectory Predictor (nth-Order Foresight)]]
 - [[02 - Ring 1 (Layers & Advanced Optimizers)/4-Formula Dynamic Weight Physics|4-Formula Dynamic Weight Physics]]
 - [[01 - Ring 0 (Core Math & Hardware)/Loss Formulations & Calculus|Loss Formulations & Calculus]]
-- [[04 - Ring 3 (Data & Training Pipelines)/LLMTrainer Architecture|LLMTrainer Architecture]]
+- [[04 - Ring 3 (Data & Training Pipelines)/Recognition Benchmarks - Letters MNIST Fashion-MNIST|Recognition Benchmarks]]
 - [[Index|Return to Master Index]]
