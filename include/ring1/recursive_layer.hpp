@@ -60,16 +60,36 @@ public:
     ring0::Matrix b_think;
     ring0::Matrix W_context;
 
+    // Gradient accumulators
+    ring0::Matrix grad_W_think;
+    ring0::Matrix grad_b_think;
+    ring0::Matrix grad_W_context;
+
+    // Backprop cache
+    ring0::Matrix last_input;
+    vector<ring0::Matrix> step_H_cache;
+    vector<ring0::Matrix> step_linear_cache;
+
     // Thought chain history and reflection buffers
     vector<ThoughtStep> thought_chain_history;
 
     RecursiveLayer(const string& layer_name, size_t in_dim, size_t out_dim, size_t depth = 2);
+    RecursiveLayer(const RecursiveLayer& other);
+    RecursiveLayer(RecursiveLayer&& other) noexcept = default;
+    RecursiveLayer& operator=(const RecursiveLayer& other);
+    RecursiveLayer& operator=(RecursiveLayer&& other) noexcept = default;
 
     /// Adds a child sub-layer and binds its parent pointer
     void add_child(unique_ptr<RecursiveLayer> child);
 
     /// Recursively processes input X through K internal thinking loops and child sub-layers
     ring0::Matrix forward(const ring0::Matrix& X);
+
+    /// Backward pass computing gradients for W_think, b_think, W_context and returning dInput
+    ring0::Matrix backward(const ring0::Matrix& grad_output, float relevancy = 1.0f);
+
+    /// Resets all gradient accumulators to zero
+    void reset_gradients();
 
     /**
      * @brief Loops through its own thought chains for multiple reflection cycles,

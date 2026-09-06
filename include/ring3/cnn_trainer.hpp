@@ -128,6 +128,7 @@ private:
     void distribute_global_gradient_vector(const std::vector<float>& global_grad_vector);
     float perform_auto_gradient_normalization();
     void update_model_parameters(float effective_lr);
+    void rebuild_optimizer_params();
 
 public:
     CNNTrainer(CNN& net, CNNTrainingConfig cfg = {});

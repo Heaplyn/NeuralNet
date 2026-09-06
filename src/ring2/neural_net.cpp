@@ -30,13 +30,23 @@ namespace ring2
     }
 
     // Backward propagation: dOut -> Layer_N -> Layer_{N-1} -> ... -> dIn
-    void NeuralNet::backward(const ring0::Matrix &grad_output, float relevancy)
+    ring0::Matrix NeuralNet::backward(const ring0::Matrix &grad_output, float relevancy)
     {
         ring0::Matrix current_grad = grad_output * relevancy;
         int size = static_cast<int>(layers.size() * relevancy);
         for (int i = static_cast<int>(size) - 1; i >= 0; --i)
         {
             current_grad = layers[i].backward(current_grad, relevancy / (1.0f + (float)i * 7.0f / sqrt((float)size)));
+        }
+        return current_grad;
+    }
+
+    // Resets parameter gradients across all dense layers
+    void NeuralNet::reset_gradients()
+    {
+        for (auto &layer : layers)
+        {
+            layer.reset_gradients();
         }
     }
 

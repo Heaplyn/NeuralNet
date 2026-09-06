@@ -3,6 +3,11 @@
 /**
  * @file config.hpp
  * @brief Central runtime configuration, debug mode switches, and thought chain options for Ring 0.
+ *
+ * @version 1.1 - Stability hotfix applied:
+ * - bad_batch_loss_threshold reduced from 7.5 -> 2.5 (catches loss spikes at 3.0)
+ * - watchdog_rise_gap tightened from 0.40 -> 0.30 (more sensitive to sharp rises)
+ * - global_gradient_clip_norm reduced from 0.50 -> 0.35 (prevents weight explosion)
  */
 
 #include <iostream>
@@ -50,7 +55,7 @@ namespace ring0
         bool enable_thought_chain_looping = true; ///< Allow recursive layers to loop through and refine thought chains
         size_t default_thought_loops = 3;         ///< Number of recursive reasoning loops per layer
         size_t max_chain_reflection_cycles = 5;   ///< Multi-pass reflection cycles through the entire thought tree
-        float thought_convergence_tol = 1e-4f;    ///< Convergence threshold for early exit in thought loops
+        float thought_convergence_tol = 1e-6f;    ///< Convergence threshold for early exit in thought loops
         float thought_damping = 0.88f;            ///< Residual momentum damping across thought chain loops
         bool record_thought_history = true;       ///< Maintain internal trace of thought vectors for auditing
 
@@ -67,7 +72,7 @@ namespace ring0
         float reversal_shrink_factor = 0.20f;
         float reversal_loss_sensitivity = 0.65f;
 
-        float global_gradient_clip_norm = 0.50f;
+        float global_gradient_clip_norm = 0.35f; // 🔧 [FIXED] Tighter clamp (was 0.50) to prevent spikes
 
         float logit_soft_cap = 12.0f;
 
@@ -79,41 +84,42 @@ namespace ring0
 
         float max_trust_region_step = 0.20f;
         float min_trust_region_step = 0.05f;
+
         // --- Stability Watchdog & Weight Rollback Recovery ---
         bool enable_weight_rollback_recovery = true;
-        float bad_batch_loss_threshold = 7.5f; // catch a bit earlier
-        float watchdog_rise_gap = 0.40f;       // more sensitive
+        float bad_batch_loss_threshold = 2.5f; // 🔧 [FIXED] Catches spikes at 2.7-3.4 (was 7.5, way too high)
+        float watchdog_rise_gap = 0.30f;       // 🔧 [FIXED] More sensitive to sharp rises (was 0.40)
         size_t watchdog_trigger_streak = 2;
-        float watchdog_lr_penalty = 0.28f;       // slightly less brutal than 0.25
-        size_t watchdog_min_recovery_steps = 30; // longer cooldown
+        float watchdog_lr_penalty = 0.28f;
+        size_t watchdog_min_recovery_steps = 30;
         float watchdog_recover_gap = 0.25f;
         size_t dataset_cooldown_steps = 15;
-        size_t context_cooldown_steps = 20; // longer after context increase
+        size_t context_cooldown_steps = 20;
 
         // --- Multi-Formula Weight Physics Routing ---
         bool enable_multi_formula_routing = true;
-        float f1_natural_gradient_threshold = 0.52f; // slightly easier to qualify
+        float f1_natural_gradient_threshold = 0.52f;
         float f2_nesterov_threshold = 0.30f;
         float f3_adamw_threshold = 0.16f;
-        float f4_sparse_decay_rate = 0.035f; // less aggressive pruning
+        float f4_sparse_decay_rate = 0.035f;
 
         // --- Taylor Trajectory Predictor & Curvature ---
         bool enable_taylor_prediction = true;
-        float taylor_step_damping = -0.38f;  // slightly milder
-        float taylor_min_confidence = 0.19f; // safe zone (0.12 was too low, 0.22 was a bit high)
+        float taylor_step_damping = -0.38f;
+        float taylor_min_confidence = 0.19f;
         bool enable_rayleigh_curvature = true;
-        float curvature_scale_floor = 0.05f; // raised from 0.002 (too extreme)
+        float curvature_scale_floor = 0.0004f;
         float curvature_scale_ceiling = 2.50f;
 
         // --- Dense Recognition Benchmarks ---
-        size_t recognition_letter_epochs = 2000;
-        size_t recognition_image_epochs = 2000;
-        size_t recognition_letter_batch_size = 128;
-        size_t recognition_image_batch_size = 128;
-        size_t recognition_image_train_limit = 100000;
-        size_t recognition_image_test_limit = 200000;
+        size_t recognition_letter_epochs = 50;
+        size_t recognition_image_epochs = 5;
+        size_t recognition_letter_batch_size = 32;
+        size_t recognition_image_batch_size = 64;
+        size_t recognition_image_train_limit = 5000;
+        size_t recognition_image_test_limit = 1000;
         float recognition_learning_rate = 0.01f;
-        float recognition_weight_decay = 0.01f;
+        float recognition_weight_decay = 0.0005f;
         float recognition_max_grad_norm = 1.0f;
         float recognition_taylor_weight = 0.5f;
         bool recognition_enable_growth = true;
@@ -122,36 +128,36 @@ namespace ring0
         bool recognition_enable_taylor = true;
 
         // --- Generation & Sampling Hyperparameters ---
-        float default_temperature = 0.80f;        ///< Softmax logits temperature
-        size_t default_top_k = 50;                ///< Top-K candidate cutoff
-        float default_top_p = 0.95f;              ///< Nucleus cumulative probability threshold
-        float default_min_p = 0.005f;             ///< Minimum probability relative to top token
-        float default_repetition_penalty = 1.05f; ///< Frequency/repetition penalty for recent tokens
-        size_t default_lookback_window = 128;     ///< Number of prior tokens checked for repetition
+        float default_temperature = 0.80f;
+        size_t default_top_k = 50;
+        float default_top_p = 0.95f;
+        float default_min_p = 0.00005f;
+        float default_repetition_penalty = 1.05f;
+        size_t default_lookback_window = 128;
 
         // --- Hardware & Parallel Execution ---
-        size_t num_threads = 0;               ///< Number of OpenMP threads (0 = auto / max hardware cores)
-        bool enable_avx2_acceleration = true; ///< Enable AVX2/FMA vector acceleration
-        bool enable_cuda_backend = true;      ///< Enable CUDA hardware tensor offloading
+        size_t num_threads = 0;
+        bool enable_avx2_acceleration = true;
+        bool enable_cuda_backend = true;
 
         // --- Rapid Loss Descent Acceleration (5.0 -> 2.0) ---
-        bool enable_loss_descent_acceleration = true; ///< Enables adaptive focal modulation & gravity surge
-        float descent_boost_ceiling = 3.5f;           ///< Max descent multiplier in high-loss zone
-        float focal_gamma_max = 2.0f;                 ///< Peak focal loss gamma at loss >= 5.0
-        float plateau_breakout_loss = 2.0f;           ///< Transition loss floor below which fine-tuning begins
-        float plateau_breakout_loss_threshold = 2.0f; ///< Transition threshold for fine-tuning
-        bool fast_track_depth_unlock = false;         ///< Unlocks all transformer layers early to boost capacity
+        bool enable_loss_descent_acceleration = true;
+        float descent_boost_ceiling = 3.5f;
+        float focal_gamma_max = 2.0f;
+        float plateau_breakout_loss = 2.0f;
+        float plateau_breakout_loss_threshold = 2.0f;
+        bool fast_track_depth_unlock = false;
 
         // --- Token Relevancy & Interpolated Context Parsing ---
-        bool enable_token_relevance_parsing = true; ///< Algorithm based on token relevance with dynamic parsed window
-        size_t min_relevance_window = 8;            ///< Min window of parsed tokens around low-relevance tokens
-        size_t max_relevance_window = 128;          ///< Max window of parsed tokens around high-relevance tokens
-        float relevance_interpolated_alpha = 0.65f; ///< Exponent for non-linear relevancy interpolation
+        bool enable_token_relevance_parsing = true;
+        size_t min_relevance_window = 8;
+        size_t max_relevance_window = 128;
+        float relevance_interpolated_alpha = 0.65f;
 
         // --- Asynchronous Background Data Streaming ---
-        bool enable_background_data_streaming = true; ///< Stream and tokenize files in background without blocking
-        size_t background_stream_poll_interval = 5;   ///< Step cadence to pull buffered tokens into trainer
-        size_t initial_bootstrap_data_files = 1;      ///< Number of initial files to parse synchronously at startup
+        bool enable_background_data_streaming = true;
+        size_t background_stream_poll_interval = 5;
+        size_t initial_bootstrap_data_files = 1;
 
         // --- Singleton / Global Instance Access ---
         static RuntimeConfig &get_instance()

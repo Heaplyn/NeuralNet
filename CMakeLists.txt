@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Include directories
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include_new)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 if(NOT MSVC)
     find_package(OpenMP)
@@ -72,7 +72,7 @@ add_library(ringwrapper_nn STATIC
 )
 
 target_include_directories(ringwrapper_nn PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include_new
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
 if(OpenMP_CXX_FOUND)

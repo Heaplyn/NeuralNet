@@ -33,8 +33,11 @@ public:
     /// Forward pass through all layers sequentially
     ring0::Matrix forward(const ring0::Matrix& input);
 
-    /// Backward gradient backpropagation in reverse layer order
-    void backward(const ring0::Matrix& grad_output,float relevancy = 1.0f);
+    /// Backward gradient backpropagation in reverse layer order returning input gradient dX
+    ring0::Matrix backward(const ring0::Matrix& grad_output, float relevancy = 1.0f);
+
+    /// Resets parameter gradients to zero across all layers
+    void reset_gradients();
 
     /// Dynamically expands hidden layer width at layer_index
     bool expand_hidden_layer(size_t layer_index, size_t additional_neurons);

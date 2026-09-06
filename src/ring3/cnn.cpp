@@ -1,6 +1,7 @@
 #include "ring3/cnn.hpp"
 #include <iostream>
 #include <iomanip>
+#include <algorithm>
 
 namespace ring3 {
 
@@ -26,6 +27,27 @@ void CNN::get_flattened_dim(size_t& out_c, size_t& out_h, size_t& out_w) const {
     }
 }
 
+size_t CNN::get_current_feature_dim() const {
+    if (!dense_layers.empty()) {
+        return dense_layers.back().out_features;
+    }
+    if (use_neural_net_head && !dense_head.layers.empty()) {
+        return dense_head.layers.back().out_features;
+    }
+    if (!recursive_layers.empty()) {
+        return recursive_layers.back().out_features;
+    }
+    if (!transformer_blocks.empty()) {
+        return transformer_blocks.back().embed_dim;
+    }
+    if (!attention_blocks.empty()) {
+        return attention_blocks.back().embed_dim;
+    }
+    size_t fc, fh, fw;
+    get_flattened_dim(fc, fh, fw);
+    return fc * fh * fw;
+}
+
 void CNN::add_conv_block(const ConvBlockConfig& cfg) {
     size_t in_c = conv_layers.empty() ? input_channels : conv_layers.back().out_channels;
     conv_layers.emplace_back(in_c, cfg.out_channels, cfg.kernel_size, cfg.kernel_size,
@@ -49,17 +71,35 @@ void CNN::add_conv(size_t in_c, size_t out_c, size_t k, size_t s, size_t p,
     add_conv_block(cfg);
 }
 
-void CNN::add_dense(size_t out_dim, ring0::ActivationType act) {
-    size_t in_dim = 0;
-    if (dense_layers.empty()) {
-        size_t fc, fh, fw;
-        get_flattened_dim(fc, fh, fw);
-        in_dim = fc * fh * fw;
-    } else {
-        in_dim = dense_layers.back().out_features;
-    }
+void CNN::add_attention(size_t embed_dim, size_t num_heads, size_t num_kv_heads) {
+    attention_blocks.emplace_back(embed_dim, num_heads, num_kv_heads);
+}
 
+void CNN::add_transformer_block(size_t embed_dim, size_t num_heads, size_t ffn_dim) {
+    transformer_blocks.emplace_back(embed_dim, num_heads, ffn_dim);
+}
+
+void CNN::add_recursive_thought(const std::string& name, size_t out_dim, size_t depth) {
+    size_t in_dim = get_current_feature_dim();
+    recursive_layers.emplace_back(name, in_dim, out_dim, depth);
+}
+
+void CNN::add_recursive_layer(const ring1::RecursiveLayer& layer) {
+    recursive_layers.push_back(layer);
+}
+
+void CNN::add_dense(size_t out_dim, ring0::ActivationType act) {
+    size_t in_dim = get_current_feature_dim();
     dense_layers.emplace_back(in_dim, out_dim, act);
+}
+
+void CNN::add_dense_layer(const ring1::DenseLayer& layer) {
+    dense_layers.push_back(layer);
+}
+
+void CNN::attach_neural_net(const ring2::NeuralNet& head_net) {
+    dense_head = head_net;
+    use_neural_net_head = true;
 }
 
 ring0::Matrix CNN::forward(const Tensor4D& input) {
@@ -81,13 +121,58 @@ ring0::Matrix CNN::forward(const Tensor4D& input) {
 
     last_conv_final_feature_map = current;
     last_flattened_features = current.to_matrix();
+    ring0::Matrix feat = last_flattened_features;
 
-    ring0::Matrix dense_act = last_flattened_features;
-    for (auto& dense : dense_layers) {
-        dense_act = dense.forward(dense_act);
+    // 1. Ring 1 Attention blocks
+    for (auto& attn : attention_blocks) {
+        ring0::Tensor3D t_in(feat.rows, 1, feat.cols);
+        for (size_t b = 0; b < feat.rows; ++b) {
+            for (size_t c = 0; c < feat.cols; ++c) {
+                t_in(b, 0, c) = feat(b, c);
+            }
+        }
+        ring0::Tensor3D t_out = attn.forward(t_in);
+        for (size_t b = 0; b < feat.rows; ++b) {
+            for (size_t c = 0; c < feat.cols; ++c) {
+                feat(b, c) = t_out(b, 0, c);
+            }
+        }
+    }
+    last_post_attention_features = feat;
+
+    // 2. Ring 1 Transformer blocks
+    for (auto& tb : transformer_blocks) {
+        ring0::Tensor3D t_in(feat.rows, 1, feat.cols);
+        for (size_t b = 0; b < feat.rows; ++b) {
+            for (size_t c = 0; c < feat.cols; ++c) {
+                t_in(b, 0, c) = feat(b, c);
+            }
+        }
+        ring0::Tensor3D t_out = tb.forward(t_in);
+        for (size_t b = 0; b < feat.rows; ++b) {
+            for (size_t c = 0; c < feat.cols; ++c) {
+                feat(b, c) = t_out(b, 0, c);
+            }
+        }
+    }
+    last_post_transformer_features = feat;
+
+    // 3. Ring 1 Recursive Thought reasoning layers
+    for (auto& rec : recursive_layers) {
+        feat = rec.forward(feat);
+    }
+    last_post_recursive_features = feat;
+
+    // 4. Ring 1 / Ring 2 Dense classification heads
+    if (use_neural_net_head) {
+        feat = dense_head.forward(feat);
+    } else {
+        for (auto& dense : dense_layers) {
+            feat = dense.forward(feat);
+        }
     }
 
-    return dense_act;
+    return feat;
 }
 
 ring0::Matrix CNN::forward_flat(const ring0::Matrix& flat_images) {
@@ -96,34 +181,87 @@ ring0::Matrix CNN::forward_flat(const ring0::Matrix& flat_images) {
 }
 
 void CNN::backward(const ring0::Matrix& grad_output, float relevancy) {
-    if (dense_layers.empty()) return;
+    ring0::Matrix grad = grad_output;
 
-    // 1. Backprop through Dense classification layers
-    ring0::Matrix grad_dense = grad_output;
-    for (int i = static_cast<int>(dense_layers.size()) - 1; i >= 0; --i) {
-        grad_dense = dense_layers[i].backward(grad_dense, relevancy);
+    // 1. Backprop through Dense classification layers / NeuralNet head
+    if (use_neural_net_head) {
+        grad = dense_head.backward(grad, relevancy);
+    } else {
+        for (int i = static_cast<int>(dense_layers.size()) - 1; i >= 0; --i) {
+            grad = dense_layers[i].backward(grad, relevancy);
+        }
     }
 
-    // 2. Un-flatten gradient to 4D tensor matching conv backbone output
-    Tensor4D grad_conv = Tensor4D::from_matrix(grad_dense,
-                                               last_conv_final_feature_map.channels,
-                                               last_conv_final_feature_map.height,
-                                               last_conv_final_feature_map.width);
+    // 2. Backprop through Recursive Thought reasoning layers
+    for (int i = static_cast<int>(recursive_layers.size()) - 1; i >= 0; --i) {
+        grad = recursive_layers[i].backward(grad, relevancy);
+    }
 
-    // 3. Backprop through Convolutional and Pooling layers in reverse
-    int pool_idx = static_cast<int>(pool_layers.size()) - 1;
-    for (int i = static_cast<int>(conv_layers.size()) - 1; i >= 0; --i) {
-        if (has_pooling[i] && pool_idx >= 0) {
-            grad_conv = pool_layers[pool_idx].backward(grad_conv, relevancy);
-            pool_idx--;
+    // 3. Backprop through Transformer Decoder blocks
+    for (int i = static_cast<int>(transformer_blocks.size()) - 1; i >= 0; --i) {
+        ring0::Tensor3D t_grad(grad.rows, 1, grad.cols);
+        for (size_t b = 0; b < grad.rows; ++b) {
+            for (size_t c = 0; c < grad.cols; ++c) {
+                t_grad(b, 0, c) = grad(b, c);
+            }
         }
-        grad_conv = conv_layers[i].backward(grad_conv, relevancy);
+        ring0::Tensor3D t_in_grad = transformer_blocks[i].backward(t_grad);
+        for (size_t b = 0; b < grad.rows; ++b) {
+            for (size_t c = 0; c < grad.cols; ++c) {
+                grad(b, c) = t_in_grad(b, 0, c);
+            }
+        }
+    }
+
+    // 4. Backprop through Attention blocks
+    for (int i = static_cast<int>(attention_blocks.size()) - 1; i >= 0; --i) {
+        ring0::Tensor3D t_grad(grad.rows, 1, grad.cols);
+        for (size_t b = 0; b < grad.rows; ++b) {
+            for (size_t c = 0; c < grad.cols; ++c) {
+                t_grad(b, 0, c) = grad(b, c);
+            }
+        }
+        ring0::Tensor3D t_in_grad = attention_blocks[i].backward(t_grad);
+        for (size_t b = 0; b < grad.rows; ++b) {
+            for (size_t c = 0; c < grad.cols; ++c) {
+                grad(b, c) = t_in_grad(b, 0, c);
+            }
+        }
+    }
+
+    // 5. Un-flatten gradient to 4D tensor matching conv backbone output
+    if (!conv_layers.empty() && last_conv_final_feature_map.channels > 0) {
+        Tensor4D grad_conv = Tensor4D::from_matrix(grad,
+                                                   last_conv_final_feature_map.channels,
+                                                   last_conv_final_feature_map.height,
+                                                   last_conv_final_feature_map.width);
+
+        int pool_idx = static_cast<int>(pool_layers.size()) - 1;
+        for (int i = static_cast<int>(conv_layers.size()) - 1; i >= 0; --i) {
+            if (has_pooling[i] && pool_idx >= 0) {
+                grad_conv = pool_layers[pool_idx].backward(grad_conv, relevancy);
+                pool_idx--;
+            }
+            grad_conv = conv_layers[i].backward(grad_conv, relevancy);
+        }
     }
 }
 
 void CNN::reset_gradients() {
     for (auto& conv : conv_layers) {
         conv.reset_gradients();
+    }
+    for (auto& attn : attention_blocks) {
+        attn.reset_gradients();
+    }
+    for (auto& tb : transformer_blocks) {
+        tb.reset_gradients();
+    }
+    for (auto& rec : recursive_layers) {
+        rec.reset_gradients();
+    }
+    if (use_neural_net_head) {
+        dense_head.reset_gradients();
     }
     for (auto& dense : dense_layers) {
         dense.reset_gradients();
@@ -137,19 +275,29 @@ bool CNN::expand_conv_filters(size_t layer_idx, size_t additional_filters) {
 
     if (layer_idx + 1 < conv_layers.size()) {
         conv_layers[layer_idx + 1].expand_input_channels(additional_filters);
-    } else if (!dense_layers.empty()) {
+    } else {
         size_t fc, fh, fw;
         get_flattened_dim(fc, fh, fw);
         size_t new_in_dim = fc * fh * fw;
-        size_t current_in = dense_layers[0].in_features;
-        if (new_in_dim > current_in) {
-            dense_layers[0].expand_input_dim(new_in_dim - current_in);
+        if (!dense_layers.empty()) {
+            size_t current_in = dense_layers[0].in_features;
+            if (new_in_dim > current_in) {
+                dense_layers[0].expand_input_dim(new_in_dim - current_in);
+            }
+        } else if (use_neural_net_head && !dense_head.layers.empty()) {
+            size_t current_in = dense_head.layers[0].in_features;
+            if (new_in_dim > current_in) {
+                dense_head.layers[0].expand_input_dim(new_in_dim - current_in);
+            }
         }
     }
     return true;
 }
 
 bool CNN::expand_dense_neurons(size_t layer_idx, size_t additional_neurons) {
+    if (use_neural_net_head) {
+        return dense_head.expand_hidden_layer(layer_idx, additional_neurons);
+    }
     if (layer_idx >= dense_layers.size() || additional_neurons == 0) return false;
     dense_layers[layer_idx].expand_output_dim(additional_neurons);
     if (layer_idx + 1 < dense_layers.size()) {
@@ -166,9 +314,16 @@ void CNN::expand_capacity(float growth_factor) {
         expand_conv_filters(i, added);
     }
 
-    for (size_t j = 0; j + 1 < dense_layers.size(); ++j) {
-        size_t added = std::max<size_t>(2, static_cast<size_t>(dense_layers[j].out_features * (growth_factor - 1.0f)));
-        expand_dense_neurons(j, added);
+    if (use_neural_net_head) {
+        for (size_t j = 0; j + 1 < dense_head.layers.size(); ++j) {
+            size_t added = std::max<size_t>(2, static_cast<size_t>(dense_head.layers[j].out_features * (growth_factor - 1.0f)));
+            expand_dense_neurons(j, added);
+        }
+    } else {
+        for (size_t j = 0; j + 1 < dense_layers.size(); ++j) {
+            size_t added = std::max<size_t>(2, static_cast<size_t>(dense_layers[j].out_features * (growth_factor - 1.0f)));
+            expand_dense_neurons(j, added);
+        }
     }
 }
 
@@ -177,8 +332,32 @@ size_t CNN::get_total_parameters() const {
     for (const auto& conv : conv_layers) {
         total += conv.get_parameter_count();
     }
-    for (const auto& dense : dense_layers) {
-        total += dense.weights.rows * dense.weights.cols + dense.biases.cols;
+    for (const auto& attn : attention_blocks) {
+        total += attn.W_q.data.size() + attn.b_q.data.size();
+        total += attn.W_k.data.size() + attn.b_k.data.size();
+        total += attn.W_v.data.size() + attn.b_v.data.size();
+        total += attn.W_o.data.size() + attn.b_o.data.size();
+    }
+    for (const auto& tb : transformer_blocks) {
+        total += tb.attention.W_q.data.size() + tb.attention.b_q.data.size();
+        total += tb.attention.W_k.data.size() + tb.attention.b_k.data.size();
+        total += tb.attention.W_v.data.size() + tb.attention.b_v.data.size();
+        total += tb.attention.W_o.data.size() + tb.attention.b_o.data.size();
+        total += tb.ln1_gamma.data.size() + tb.ln1_beta.data.size();
+        total += tb.ln2_gamma.data.size() + tb.ln2_beta.data.size();
+        total += tb.W_gate.data.size() + tb.b_gate.data.size();
+        total += tb.W_up.data.size() + tb.b_up.data.size();
+        total += tb.W_down.data.size() + tb.b_down.data.size();
+    }
+    for (const auto& rec : recursive_layers) {
+        total += rec.W_think.data.size() + rec.b_think.data.size() + rec.W_context.data.size();
+    }
+    if (use_neural_net_head) {
+        total += dense_head.get_total_parameters();
+    } else {
+        for (const auto& dense : dense_layers) {
+            total += dense.weights.rows * dense.weights.cols + dense.biases.cols;
+        }
     }
     return total;
 }
@@ -206,10 +385,34 @@ void CNN::print_architecture() const {
     get_flattened_dim(fc, fh, fw);
     std::cout << " Bridge  [Flatten]   : (" << fc << "x" << fh << "x" << fw << ") -> " << (fc * fh * fw) << " features\n";
 
-    for (size_t j = 0; j < dense_layers.size(); ++j) {
-        const auto& d = dense_layers[j];
-        std::cout << " Dense " << j << "  [DenseFC]   : " << d.in_features << " -> " << d.out_features
-                  << " | Params: " << (d.weights.rows * d.weights.cols + d.biases.cols) << "\n";
+    for (size_t a = 0; a < attention_blocks.size(); ++a) {
+        std::cout << " Attn    [GQA RoPE]  : " << attention_blocks[a].embed_dim
+                  << " (heads=" << attention_blocks[a].num_heads << ")\n";
+    }
+
+    for (size_t t = 0; t < transformer_blocks.size(); ++t) {
+        std::cout << " Xformer [Decoder]   : " << transformer_blocks[t].embed_dim
+                  << " (SwiGLU FFN=" << transformer_blocks[t].ffn_dim << ")\n";
+    }
+
+    for (size_t r = 0; r < recursive_layers.size(); ++r) {
+        std::cout << " Thought [Recursive] : " << recursive_layers[r].name
+                  << " (" << recursive_layers[r].in_features << " -> " << recursive_layers[r].out_features
+                  << ", depth=" << recursive_layers[r].thinking_depth << ")\n";
+    }
+
+    if (use_neural_net_head) {
+        std::cout << " Head    [Ring2 Net] : " << dense_head.get_num_layers() << " dense layers\n";
+        for (size_t j = 0; j < dense_head.layers.size(); ++j) {
+            const auto& d = dense_head.layers[j];
+            std::cout << "   - Head Dense " << j << ": " << d.in_features << " -> " << d.out_features << "\n";
+        }
+    } else {
+        for (size_t j = 0; j < dense_layers.size(); ++j) {
+            const auto& d = dense_layers[j];
+            std::cout << " Dense " << j << "  [DenseFC]   : " << d.in_features << " -> " << d.out_features
+                      << " | Params: " << (d.weights.rows * d.weights.cols + d.biases.cols) << "\n";
+        }
     }
 
     std::cout << "---------------------------------------------------------\n";

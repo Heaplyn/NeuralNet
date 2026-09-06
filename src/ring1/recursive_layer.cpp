@@ -41,6 +41,63 @@ RecursiveLayer::RecursiveLayer(const string& layer_name, size_t in_dim, size_t o
     W_think = ring0::Matrix::random_normal(out_dim, out_dim, 0.0f, scale);
     b_think = ring0::Matrix::zeros(1, out_dim);
     W_context = ring0::Matrix::random_normal(in_dim, out_dim, 0.0f, scale);
+
+    grad_W_think = ring0::Matrix::zeros(out_dim, out_dim);
+    grad_b_think = ring0::Matrix::zeros(1, out_dim);
+    grad_W_context = ring0::Matrix::zeros(in_dim, out_dim);
+}
+
+RecursiveLayer::RecursiveLayer(const RecursiveLayer& other)
+    : name(other.name),
+      in_features(other.in_features),
+      out_features(other.out_features),
+      thinking_depth(other.thinking_depth),
+      parent(nullptr),
+      W_think(other.W_think),
+      b_think(other.b_think),
+      W_context(other.W_context),
+      grad_W_think(other.grad_W_think),
+      grad_b_think(other.grad_b_think),
+      grad_W_context(other.grad_W_context),
+      last_input(other.last_input),
+      step_H_cache(other.step_H_cache),
+      step_linear_cache(other.step_linear_cache),
+      thought_chain_history(other.thought_chain_history) {
+    for (const auto& child : other.children) {
+        if (child) {
+            auto child_copy = std::make_unique<RecursiveLayer>(*child);
+            child_copy->parent = this;
+            children.push_back(std::move(child_copy));
+        }
+    }
+}
+
+RecursiveLayer& RecursiveLayer::operator=(const RecursiveLayer& other) {
+    if (this == &other) return *this;
+    name = other.name;
+    in_features = other.in_features;
+    out_features = other.out_features;
+    thinking_depth = other.thinking_depth;
+    parent = nullptr;
+    W_think = other.W_think;
+    b_think = other.b_think;
+    W_context = other.W_context;
+    grad_W_think = other.grad_W_think;
+    grad_b_think = other.grad_b_think;
+    grad_W_context = other.grad_W_context;
+    last_input = other.last_input;
+    step_H_cache = other.step_H_cache;
+    step_linear_cache = other.step_linear_cache;
+    thought_chain_history = other.thought_chain_history;
+    children.clear();
+    for (const auto& child : other.children) {
+        if (child) {
+            auto child_copy = std::make_unique<RecursiveLayer>(*child);
+            child_copy->parent = this;
+            children.push_back(std::move(child_copy));
+        }
+    }
+    return *this;
 }
 
 // Attaches child sub-layer and links this layer as parent
@@ -75,6 +132,10 @@ ring0::Matrix RecursiveLayer::forward(const ring0::Matrix& X) {
     bool debug = ring0::is_debug_mode() || ring0::get_config().verbose_thought_chains;
     string indent(get_tree_depth() * 4, ' ');
 
+    last_input = X;
+    step_H_cache.clear();
+    step_linear_cache.clear();
+
     // 1. Initial projection into layer's feature dimension
     ring0::Matrix H = (X.cols == in_features) ? X.matmul(W_context) : X;
     if (H.cols != out_features && W_think.rows == out_features) {
@@ -97,10 +158,12 @@ ring0::Matrix RecursiveLayer::forward(const ring0::Matrix& X) {
     // 2. Latent Recursive Thinking Loops: Refines hidden state over K iterations
     for (size_t step = 0; step < thinking_depth; ++step) {
         ring0::Matrix prev_H = H;
+        step_H_cache.push_back(H);
 
         // Internal thinking step: H_{t+1} = GELU(H_t * W_think + b_think) + H_t (residual)
-        ring0::Matrix thought = H.matmul(W_think).add_bias(b_think);
-        thought = ring0::Activations::gelu(thought);
+        ring0::Matrix linear = H.matmul(W_think).add_bias(b_think);
+        step_linear_cache.push_back(linear);
+        ring0::Matrix thought = ring0::Activations::gelu(linear);
         H = H + thought; // Residual thought accumulation
 
         // Telemetry metrics
@@ -178,6 +241,73 @@ ring0::Matrix RecursiveLayer::forward(const ring0::Matrix& X) {
     }
 
     return H;
+}
+
+ring0::Matrix RecursiveLayer::backward(const ring0::Matrix& grad_output, float relevancy) {
+    if (grad_W_think.rows != W_think.rows || grad_W_think.cols != W_think.cols) {
+        grad_W_think = ring0::Matrix::zeros(W_think.rows, W_think.cols);
+    }
+    if (grad_b_think.rows != b_think.rows || grad_b_think.cols != b_think.cols) {
+        grad_b_think = ring0::Matrix::zeros(b_think.rows, b_think.cols);
+    }
+    if (grad_W_context.rows != W_context.rows || grad_W_context.cols != W_context.cols) {
+        grad_W_context = ring0::Matrix::zeros(W_context.rows, W_context.cols);
+    }
+
+    ring0::Matrix dH = grad_output;
+
+    // 1. Backprop through children in reverse order
+    for (int c_idx = static_cast<int>(children.size()) - 1; c_idx >= 0; --c_idx) {
+        if (children[c_idx]) {
+            dH = children[c_idx]->backward(dH, relevancy);
+        }
+    }
+
+    // 2. Backprop through thinking steps in reverse order
+    for (int step = static_cast<int>(step_H_cache.size()) - 1; step >= 0; --step) {
+        const auto& H_t = step_H_cache[step];
+        const auto& linear_t = step_linear_cache[step];
+
+        ring0::Matrix d_linear = ring0::Activations::gelu_derivative(linear_t, dH);
+
+        // dW_think += H_t^T * d_linear * relevancy
+        ring0::Matrix H_t_T = H_t.transpose();
+        ring0::Matrix step_grad_W = H_t_T.matmul(d_linear) * relevancy;
+        grad_W_think = grad_W_think + step_grad_W;
+
+        // db_think += col_sum(d_linear) * relevancy
+        for (size_t r = 0; r < d_linear.rows; ++r) {
+            for (size_t c = 0; c < d_linear.cols; ++c) {
+                grad_b_think(0, c) += d_linear(r, c) * relevancy;
+            }
+        }
+
+        // dH_t = dH_{t+1} + d_linear * W_think^T
+        ring0::Matrix W_think_T = W_think.transpose();
+        dH = dH + d_linear.matmul(W_think_T);
+    }
+
+    // 3. Backprop through context projection
+    ring0::Matrix dX = dH;
+    if (last_input.cols == in_features && W_context.rows == in_features && W_context.cols == out_features) {
+        ring0::Matrix X_T = last_input.transpose();
+        ring0::Matrix step_grad_W_ctx = X_T.matmul(dH) * relevancy;
+        grad_W_context = grad_W_context + step_grad_W_ctx;
+
+        ring0::Matrix W_ctx_T = W_context.transpose();
+        dX = dH.matmul(W_ctx_T);
+    }
+
+    return dX;
+}
+
+void RecursiveLayer::reset_gradients() {
+    grad_W_think = ring0::Matrix::zeros(W_think.rows, W_think.cols);
+    grad_b_think = ring0::Matrix::zeros(b_think.rows, b_think.cols);
+    grad_W_context = ring0::Matrix::zeros(W_context.rows, W_context.cols);
+    for (auto& child : children) {
+        if (child) child->reset_gradients();
+    }
 }
 
 // Multi-Pass Thought Chain Looping: Recursively loops through and reflects on its own thought chain
