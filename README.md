@@ -83,6 +83,69 @@ Getting cross-entropy loss to *start* low and *descend* without detonating, via 
 
 ---
 
+## 🔢 Recognition Benchmark: MNIST
+
+The dense recognition path trains a `784 -> 128 -> 10` classifier on real MNIST IDX images. The reported accuracy is measured against held-out labeled test images, not the training set. The same recognition trainer also supports the harder Fashion-MNIST dataset and the seeded noisy A-Z benchmark.
+
+### Representative MNIST Run
+
+This run used 20,000 training images and 10,000 held-out test images. Meta-LR and Taylor-LR are the live adaptive multipliers reported by the trainer:
+
+```text
+[MNIST] Training on 20000 real images and evaluating on 10000 held-out images.
+  MNIST epoch 1 | Loss: 1.5889 | Held-out accuracy: 80.0% | Meta LR: 1.006 | Taylor LR: 1.184
+  MNIST epoch 2 | Loss: 0.8021 | Held-out accuracy: 83.7% | Meta LR: 1.005 | Taylor LR: 0.746
+  MNIST epoch 4 | Loss: 0.4507 | Held-out accuracy: 89.2% | Meta LR: 0.986 | Taylor LR: 0.820
+  MNIST epoch 6 | Loss: 0.3699 | Held-out accuracy: 89.8% | Meta LR: 0.992 | Taylor LR: 0.975
+  MNIST epoch 8 | Loss: 0.2971 | Held-out accuracy: 91.8% | Meta LR: 0.969 | Taylor LR: 0.869
+  MNIST epoch 10 | Loss: 0.3004 | Held-out accuracy: 92.4% | Meta LR: 0.942 | Taylor LR: 0.897
+  MNIST epoch 12 | Loss: 0.2578 | Held-out accuracy: 92.2% | Meta LR: 0.988 | Taylor LR: 1.052
+  MNIST epoch 14 | Loss: 0.2121 | Held-out accuracy: 93.2% | Meta LR: 0.947 | Taylor LR: 1.041
+  MNIST epoch 16 | Loss: 0.2047 | Held-out accuracy: 93.7% | Meta LR: 0.948 | Taylor LR: 1.038
+  MNIST epoch 18 | Loss: 0.1754 | Held-out accuracy: 94.0% | Meta LR: 0.958 | Taylor LR: 0.905
+  MNIST epoch 20 | Loss: 0.1646 | Held-out accuracy: 93.9% | Meta LR: 0.990 | Taylor LR: 0.953
+  MNIST epoch 22 | Loss: 0.1531 | Held-out accuracy: 94.0% | Meta LR: 0.985 | Taylor LR: 0.855
+  MNIST epoch 24 | Loss: 0.1335 | Held-out accuracy: 93.6% | Meta LR: 0.982 | Taylor LR: 0.858
+  MNIST epoch 26 | Loss: 0.1260 | Held-out accuracy: 93.7% | Meta LR: 0.925 | Taylor LR: 0.964
+  MNIST epoch 28 | Loss: 0.1208 | Held-out accuracy: 95.2% | Meta LR: 0.942 | Taylor LR: 0.921
+  MNIST epoch 30 | Loss: 0.0988 | Held-out accuracy: 95.7% | Meta LR: 0.989 | Taylor LR: 1.021
+  MNIST epoch 32 | Loss: 0.0806 | Held-out accuracy: 95.5% | Meta LR: 0.941 | Taylor LR: 1.017
+  MNIST epoch 34 | Loss: 0.1150 | Held-out accuracy: 94.6% | Meta LR: 0.921 | Taylor LR: 1.027
+  MNIST epoch 36 | Loss: 0.0602 | Held-out accuracy: 96.2% | Meta LR: 0.998 | Taylor LR: 1.012
+  MNIST epoch 38 | Loss: 0.0617 | Held-out accuracy: 96.4% | Meta LR: 0.980 | Taylor LR: 0.887
+  MNIST epoch 40 | Loss: 0.0435 | Held-out accuracy: 96.5% | Meta LR: 1.003 | Taylor LR: 0.962
+  MNIST epoch 42 | Loss: 0.0431 | Held-out accuracy: 96.6% | Meta LR: 1.004 | Taylor LR: 1.008
+  MNIST epoch 44 | Loss: 0.0341 | Held-out accuracy: 96.7% | Meta LR: 1.005 | Taylor LR: 0.893
+  MNIST epoch 46 | Loss: 0.0470 | Held-out accuracy: 96.7% | Meta LR: 0.936 | Taylor LR: 1.009
+  MNIST epoch 48 | Loss: 0.0246 | Held-out accuracy: 96.8% | Meta LR: 0.999 | Taylor LR: 1.005
+  MNIST epoch 50 | Loss: 0.0354 | Held-out accuracy: 96.8% | Meta LR: 1.004 | Taylor LR: 1.005
+  MNIST epoch 52 | Loss: 0.0187 | Held-out accuracy: 97.0% | Meta LR: 0.998 | Taylor LR: 1.004
+```
+
+### Benchmark Parameters
+
+| Parameter | Value |
+| :--- | :--- |
+| Input features | 784 normalized grayscale pixels (28 x 28) |
+| Hidden layer | 128 neurons, ReLU |
+| Output layer | 10 linear logits, classes 0-9 |
+| Training samples | 20,000 |
+| Held-out samples | 10,000 |
+| Batch size | 128 |
+| Base learning rate | 0.01 |
+| Weight decay | 0.005 |
+| Gradient clipping | Global norm 1.0 |
+| Optimizer | AdamW with Fisher/Nesterov and multi-formula routing |
+| Meta optimizer | Enabled; dynamically modulates loss, LR, and curvature |
+| Taylor foresight | Enabled; direct predictive LR and curvature modulation |
+| Taylor/meta blend | 0.5 Taylor forecast weight |
+| Growth controller | Enabled with width safety bounds |
+| Evaluation metric | Top-1 accuracy on held-out labels |
+
+The best displayed result in this run is **97.0% held-out accuracy** at epoch 52. The Meta LR and Taylor LR values are multipliers around the configured base learning rate; they are not replacement learning-rate values.
+
+---
+
 ## 📚 Complete Obsidian Knowledge Vault
 
 A full 41-document **Obsidian Knowledge Vault** is included in [`NeuralNet Obsidian/`](./NeuralNet%20Obsidian/):
